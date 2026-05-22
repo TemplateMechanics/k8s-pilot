@@ -19,6 +19,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `argocd.agent.md` — Application/AppProject/ApplicationSet, sync waves, app-of-apps.
   - `flux.agent.md` — GitRepository/Kustomization/HelmRelease, reconciliation, suspend/resume.
 
+- `skills/kubernetes/SKILL.md`: authoritative reference for Kubernetes kinds (Workloads/Config/Networking/Storage/RBAC/Policy), Kustomize, Helm, Argo CD CRDs, Flux CRDs, cross-tool composition patterns (Helm-under-Argo, Helm-under-Flux, Kustomize-over-Helm), debugging recipes, and field-specific gotchas. Per CLAUDE.md R5 this is the single source of truth — agent personas and scripts link here rather than restate field shapes.
+
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
 - `agents/multi-cluster.agent.md` will land with the multi-cluster registry in PR 8.
