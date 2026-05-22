@@ -11,6 +11,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Target shape and 12-PR roadmap documented in README.
 - `CLAUDE.md` operational contract: diff-before-mutate discipline, hard rules, tool-family wrapper contracts, agent-selection guide.
 - `.github/copilot-instructions.md` mirroring CLAUDE.md for Copilot Chat.
+- CLAUDE.md Section 3.6: defines the "metadata-only mutations" exception class for `Invoke-HelmRollback.ps1`, `Invoke-FluxSuspend.ps1`, and `Invoke-FluxResume.ps1` — these are exempt from the diff-artifact rule because their intent is captured by the wrapper parameters, but they still require explicit `-Context`, `-Reason`, and user approval.
 - Agent personas under `agents/`:
   - `chief-systems-engineer.agent.md` — cross-tool architectural voice (Kustomize vs Helm, Argo CD vs Flux).
   - `kubernetes.agent.md` — raw kubectl + kustomize manifests and overlays.

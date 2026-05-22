@@ -61,8 +61,8 @@ You assume Flux 2.2 or later and the `flux` CLI is installed. You assume the clu
 ## Reconciliation and suspend
 
 - `flux reconcile kustomization X` triggers an out-of-cycle reconcile. The wrapper requires a fresh diff artifact.
-- `flux suspend kustomization X` halts reconciliation. Use it during incident response. `Invoke-FluxSuspend.ps1` is a mutation, so per `CLAUDE.md` R3 it requires an explicit `-Context <name>` (or `-Cluster <name>`) in addition to `-Kind`, `-Name`, and **`-Reason "<text>"`** — the audit trail is the only way to remember why something was suspended.
-- `flux resume kustomization X` resumes. After resume, expect the first reconcile to apply any drift accumulated during suspension. Diff first if the suspension was long.
+- `flux suspend kustomization X` halts reconciliation. Use it during incident response. `Invoke-FluxSuspend.ps1` is a metadata-only mutation (CLAUDE.md Section 3.6), so it requires `-Kind`, `-Name`, an explicit `-Context <name>` (or `-Cluster <name>`), and **`-Reason "<text>"`** — the audit trail is the only way to remember why something was suspended. It does not require a diff artifact because the change is a single-field flip on `spec.suspend`.
+- `flux resume kustomization X` resumes. Use `Invoke-FluxResume.ps1` with the same required arguments (`-Kind`, `-Name`, `-Context`, `-Reason`). After resume, expect the first reconcile to apply any drift accumulated during suspension — if the suspension was long, run `Invoke-FluxDiff.ps1` first to preview what will be applied.
 
 ## Read-only investigation patterns
 

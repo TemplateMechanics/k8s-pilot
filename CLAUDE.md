@@ -27,8 +27,8 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 
 | # | Rule |
 |---|------|
-| R1 | Never call `kubectl apply`, `kubectl delete`, `kubectl patch`, `kubectl replace`, `helm upgrade`, `helm install`, `helm uninstall`, `helm rollback`, `argocd app sync`, `argocd app delete`, `flux reconcile`, or `flux suspend` directly. Always use the corresponding wrapper under `scripts/<tool>/`. |
-| R2 | Never mutate cluster state without first showing a diff and getting explicit user approval for that specific diff. |
+| R1 | Never call any mutating CLI invocation of `kubectl`, `kustomize`, `helm`, `argocd`, or `flux` directly. This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly. |
+| R2 | Never mutate cluster state without first showing a diff and getting explicit user approval for that specific diff. The metadata-only exception class (Section 3.6) carves out a narrow set of mutations whose intent is captured by the wrapper parameters themselves; those still require explicit user approval and a recorded `-Reason`. |
 | R3 | Never trust the ambient kubeconfig context. Every mutation wrapper requires an explicit `-Context <name>` argument or a `-Cluster <name>` reference resolved through `config/clusters.yaml` (planned, PR 8). |
 | R4 | Never fan out a mutation across multiple clusters unless the user explicitly passes `-AcknowledgeMultiClusterMutation`, and never include `tier=prod` clusters in a fan-out selector unless they are named explicitly. |
 | R5 | Never duplicate API reference content into agent personas, scripts, or docs. The single source of truth is `skills/kubernetes/SKILL.md` (planned, PR 3). Link to it instead. |
@@ -46,7 +46,7 @@ Every tool family has a parallel script contract: a **diff** wrapper that emits 
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
-| Validate | `Invoke-KubeconformValidate.ps1` | `-Path` | Pass/fail summary |
+| Validate | `Validate-Manifests.ps1` | `-Path` | Pass/fail summary; orchestrates kubeconform + kube-score + polaris internally. This is the canonical validator entrypoint (also referenced from README and copilot-instructions). PowerShell-idiomatic name (`Validate-*` is an approved verb); other wrappers use `Invoke-*` only when they wrap an external CLI invocation. |
 | Build | `Invoke-KustomizeBuild.ps1` | `-Path`, `-Context` | Rendered manifest to `kustomize-build/<context>/<name>.yaml` |
 | Diff | `Invoke-KubectlDiff.ps1` | `-Path`, `-Context` | Diff artifact at `kustomize-build/<context>/<name>.diff` |
 | Apply | `Invoke-KubectlApply.ps1` | `-DiffFile`, `-Context` | Applies only the manifest that produced the diff |
@@ -59,7 +59,7 @@ Every tool family has a parallel script contract: a **diff** wrapper that emits 
 | Template | `Invoke-HelmTemplate.ps1` | `-ChartPath`, `-ValuesFile`, `-Release` | Rendered manifests to `helm-output/<release>/templated.yaml` |
 | Diff | `Invoke-HelmDiff.ps1` | `-ChartPath`, `-ValuesFile`, `-Release`, `-Context` | Diff artifact at `helm-output/<release>/<context>.diff` |
 | Upgrade | `Invoke-HelmUpgrade.ps1` | `-DiffFile`, `-Context` | Requires `helm-diff` plugin |
-| Rollback | `Invoke-HelmRollback.ps1` | `-Release`, `-Revision`, `-Context` | Requires explicit revision number |
+| Rollback | `Invoke-HelmRollback.ps1` | `-Release`, `-Revision`, `-Context`, `-Reason` | Metadata-only mutation (Section 3.6); requires explicit revision number. The wrapper renders `helm get manifest <release> --revision <Revision>` vs the current release and presents that as the rollback diff before executing. |
 
 ### 3.3 `argocd`  (scripts/argocd/, planned PR 6)
 
@@ -77,7 +77,8 @@ Every tool family has a parallel script contract: a **diff** wrapper that emits 
 | Build | `Invoke-FluxBuild.ps1` | `-Kustomization`, `-Path` | Rendered output to `.flux/<kustomization>.yaml` |
 | Diff | `Invoke-FluxDiff.ps1` | `-Kustomization`, `-Path`, `-Context` | Diff artifact at `.flux/<kustomization>/<context>.diff` |
 | Reconcile | `Invoke-FluxReconcile.ps1` | `-Kustomization`, `-DiffFile`, `-Context` | Triggers reconciliation; requires diff artifact |
-| Suspend | `Invoke-FluxSuspend.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Suspends a resource with an audit reason; mutation, requires explicit context per R3 |
+| Suspend | `Invoke-FluxSuspend.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: true` on the named CR |
+| Resume | `Invoke-FluxResume.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: false`. After resume the first reconcile may apply accumulated drift — diff first if suspension was long. |
 
 ### 3.5 Multi-cluster fan-out  (scripts/multi-cluster/, planned PR 8)
 
@@ -87,6 +88,24 @@ Every tool family has a parallel script contract: a **diff** wrapper that emits 
 | Read | `Invoke-KubectlGetAcross.ps1` | `-Selector`, `-Resource` | Parallel fan-out, aggregated table output |
 | Status | `Invoke-HelmStatusAcross.ps1` | `-Selector`, `-Release` | Parallel fan-out for helm release status |
 | (Mutation) | _intentionally absent_ | — | Multi-cluster mutations are NOT a single wrapper. Iterate one cluster at a time. |
+
+### 3.6 Metadata-only mutations (the diff-artifact exception)
+
+Three mutation classes are exempt from the "render diff artifact" rule of R2 because their intent is captured directly by the wrapper parameters:
+
+| Wrapper | What it changes | Why diff-as-file makes no sense |
+|---------|------------------|----------------------------------|
+| `Invoke-HelmRollback.ps1` | Pointer to a previous Helm release revision | The "diff" is the cross-revision manifest delta, which the wrapper renders and prints to the chat for approval (not a file artifact). |
+| `Invoke-FluxSuspend.ps1` | `spec.suspend: true` on a Flux CR | One-field flip; the change *is* the parameter. |
+| `Invoke-FluxResume.ps1` | `spec.suspend: false` on a Flux CR | One-field flip; same as suspend. |
+
+These wrappers still require:
+- An explicit `-Context` (R3 always applies).
+- A `-Reason "<text>"` that is recorded in the local audit log.
+- Explicit user approval in chat before execution.
+- For Helm rollback: the in-chat presentation of the cross-revision manifest delta.
+
+No other mutation class is exempt from R2. If you find yourself wanting an exemption, escalate to the user — do not add a new exempt wrapper without discussion.
 
 ---
 

@@ -13,7 +13,7 @@ You assume Argo CD 2.10 or later and the `argocd` CLI is installed and pointed a
 
 1. Load `CLAUDE.md` and the Argo CD section of `skills/kubernetes/SKILL.md` (planned, PR 3).
 2. Confirm which Argo CD server and which AppProject the change belongs to.
-3. Edit the Application / AppProject / ApplicationSet CR in the repo. These are normal Kubernetes manifests; render them via `Invoke-KustomizeBuild.ps1` or apply them via `Invoke-KubectlApply.ps1` only after the Application CR itself is committed — not the workload the Application manages.
+3. Edit the Application / AppProject / ApplicationSet CR in the repo. These are normal Kubernetes manifests — they go through the **full kubectl diff/apply flow**: `Invoke-KustomizeBuild.ps1` → `Invoke-KubectlDiff.ps1` → present the diff → user approves → `Invoke-KubectlApply.ps1 -DiffFile <path>`. Argo CD CRs are not a special case; the diff artifact requirement applies just like for any other manifest. Only after the Application CR itself is committed and applied do you move on to the workload the Application manages.
 4. For changes to a managed workload: edit the source (the repo Argo CD is watching), then diff against the live state.
 5. Diff: `Invoke-ArgocdAppDiff.ps1 -App <name> -Revision <sha-or-tag>`. The wrapper calls `argocd app diff <name> --revision <rev>` and stores the output as a diff artifact.
 6. Present the diff verbatim.
