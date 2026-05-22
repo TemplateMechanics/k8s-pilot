@@ -7,8 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
-- Repository meta files (README, LICENSE, CHANGELOG, CONTRIBUTING, CODE_OF_CONDUCT, SECURITY, .gitignore, .gitattributes).
-- Target shape and PR roadmap documented in README.
+- Repository meta files: README, LICENSE, CHANGELOG, CONTRIBUTING, .gitignore, .gitattributes.
+- Target shape and 12-PR roadmap documented in README.
+
+### Planned
+- `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
 
 ## [0.1.0] - TBD
 

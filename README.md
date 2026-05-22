@@ -75,8 +75,8 @@ User request
 2. Open the project in VS Code with the [Kubernetes extension](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) installed.
 3. Install the supporting CLIs: PowerShell 7+, `kubectl`, `kustomize`, `helm` (3.x), `argocd`, `flux`. Optional: `kubeconform`, `kube-score`, `polaris`, `trivy`.
 4. Talk to your AI assistant in natural language. It will read `CLAUDE.md` (or `.github/copilot-instructions.md`) and follow the operational sequence.
-5. Configure MCP via `.vscode/mcp.json` (**planned, PR 8**). The Kubernetes MCP server is the default discovery path.
-6. Before pushing changes, run `./scripts/Pre-Commit.ps1` (**planned, PR 11**) for the local validation gate.
+5. Configure MCP via `.vscode/mcp.json` (**planned, PR 9**). The Kubernetes MCP server is the default discovery path.
+6. Before pushing changes, run `./scripts/Pre-Commit.ps1` (**planned, PR 12**) for the local validation gate.
 
 ## The mandatory diff/apply discipline
 
@@ -154,8 +154,8 @@ MIT. See [LICENSE](LICENSE).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). All PRs are reviewed by GitHub Copilot before merge as part of the autonomous PR loop documented in [`docs/BRANCH-WORKFLOW.md`](docs/BRANCH-WORKFLOW.md) (**planned, PR 10**).
+See [CONTRIBUTING.md](CONTRIBUTING.md). All PRs are reviewed by GitHub Copilot before merge as part of the autonomous PR loop documented in `docs/BRANCH-WORKFLOW.md` (**planned, PR 11**).
 
 ## Security
 
-See [SECURITY.md](SECURITY.md) for the disclosure policy.
+A formal `SECURITY.md` disclosure policy will land in a later docs PR. Until then, please report any harness-level issue privately to the repository owner via GitHub.
