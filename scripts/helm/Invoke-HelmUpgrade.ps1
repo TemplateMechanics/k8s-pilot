@@ -30,7 +30,13 @@
     Helm timeout. Default 300 (5 min). Increase for slow workloads with explicit justification.
 
 .OUTPUTS
-    helm's stdout. Exit propagates helm's exit code.
+    helm's stdout. Exit codes:
+      0   - upgrade succeeded
+      3   - helm binary not in PATH
+      4   - metadata validation failure (missing sidecar, invalid JSON,
+            artifactKind mismatch, context/namespace/chartPath/valuesFile
+            mismatch or drift, unsafe field in sidecar)
+      other - propagated from `helm upgrade`
 #>
 [CmdletBinding()]
 param(
@@ -94,13 +100,15 @@ if (-not (Test-Path $meta.valuesFile)) {
 }
 
 # Defend against argument injection: a corrupted/hand-edited sidecar where
-# release starts with '-' would be parsed as a helm flag.
-try {
-    Assert-NonFlagArg -Value $meta.release -Name 'metadata.release'
-}
-catch {
-    Write-Error "Diff metadata release value is unsafe: $($_.Exception.Message). Regenerate via Invoke-HelmDiff.ps1."
-    exit 4
+# any of these fields starts with '-' would be parsed as a helm flag.
+foreach ($field in @('release', 'chartPath', 'valuesFile')) {
+    try {
+        Assert-NonFlagArg -Value $meta.$field -Name "metadata.$field"
+    }
+    catch {
+        Write-Error "Diff metadata field '$field' is unsafe: $($_.Exception.Message). Regenerate via Invoke-HelmDiff.ps1."
+        exit 4
+    }
 }
 
 # Verify the values file hasn't drifted since the diff was produced.

@@ -31,7 +31,11 @@
 
 .OUTPUTS
     Writes the diff artifact path to the pipeline.
-    Exit 0 = no diff, 2 = diff present (helm-diff convention with --exit-code 2).
+    Exit codes:
+      0   - no diff
+      2   - diff present (helm-diff --detailed-exitcode convention)
+      3   - helm binary or helm-diff plugin not installed
+      other - propagated from `helm diff upgrade` (treated as error)
 #>
 [CmdletBinding()]
 param(
@@ -77,7 +81,10 @@ $outDir = Join-Path (Join-Path $OutputDir $Namespace) $Release
 if (-not (Test-Path $outDir)) {
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null
 }
-$diffFile = Join-Path $outDir "$Context.diff"
+# Use a filesystem-safe slug for the filename; the true context name is
+# preserved inside the metadata sidecar so Upgrade still verifies it.
+$contextSlug = ConvertTo-SafeFilename -Value $Context
+$diffFile = Join-Path $outDir "$contextSlug.diff"
 $metaFile = "$diffFile.meta.json"
 
 # helm diff upgrade exit codes (with --detailed-exitcode):

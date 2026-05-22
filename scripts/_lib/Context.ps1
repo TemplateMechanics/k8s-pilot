@@ -112,6 +112,39 @@ function Assert-NonFlagArg {
     }
 }
 
+function ConvertTo-SafeFilename {
+    <#
+    .SYNOPSIS
+        Returns a filesystem-safe slug derived from a Kubernetes identifier.
+    .DESCRIPTION
+        Kubernetes context names can contain characters that are invalid in
+        Windows filesystems — notably ':' in EKS ARN contexts
+        (arn:aws:eks:us-east-1:123456789012:cluster/my-cluster). This helper
+        produces a slug suitable for directory/file names while preserving
+        enough of the original to be human-readable. The TRUE context name
+        should still be recorded inside the artifact's metadata for
+        verification.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory)] [string] $Value)
+
+    # Replace any character that is invalid on Windows OR awkward in shell
+    # paths with a '_'. Collapses long runs.
+    $invalidChars = '[<>:"/\\|?*\s\x00-\x1f]'
+    $slug = $Value -replace $invalidChars, '_'
+    $slug = $slug -replace '_+', '_'
+    $slug = $slug.Trim('_')
+    if (-not $slug) { $slug = 'unnamed' }
+    # Hard cap so very long ARN-style names don't blow filesystem limits.
+    if ($slug.Length -gt 80) {
+        $hash = [System.Security.Cryptography.SHA1]::HashData([System.Text.Encoding]::UTF8.GetBytes($Value))
+        $shortHash = ([System.BitConverter]::ToString($hash) -replace '-', '').Substring(0, 8).ToLowerInvariant()
+        $slug = $slug.Substring(0, 72) + '_' + $shortHash
+    }
+    return $slug
+}
+
 function Assert-SafePathSegment {
     <#
     .SYNOPSIS

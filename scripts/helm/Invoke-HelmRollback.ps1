@@ -116,7 +116,10 @@ finally {
     Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue
 }
 
-$auditDir = Join-Path (Join-Path (Join-Path '.helm' $Context) $Namespace) $Release
+# Filesystem-safe slug for the context portion of the audit path; the true
+# context name is recorded inside the JSON audit entry below.
+$contextSlug = ConvertTo-SafeFilename -Value $Context
+$auditDir = Join-Path (Join-Path (Join-Path '.helm' $contextSlug) $Namespace) $Release
 if (-not (Test-Path $auditDir)) {
     New-Item -ItemType Directory -Path $auditDir -Force | Out-Null
 }

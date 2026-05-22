@@ -28,7 +28,10 @@
 
 .OUTPUTS
     Writes the resolved path of the rendered manifest to the pipeline.
-    Exit 0 on success; non-zero exit propagates helm's exit code.
+    Exit codes:
+      0   - success
+      3   - helm binary not in PATH
+      other - propagated from `helm template`
 
 .EXAMPLE
     pwsh ./scripts/helm/Invoke-HelmTemplate.ps1 -ChartPath charts/web -ValuesFile charts/web/values-prod.yaml -Release web -Namespace web
