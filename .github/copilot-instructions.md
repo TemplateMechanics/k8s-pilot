@@ -48,7 +48,7 @@ When the user is writing Kubernetes manifests, Helm charts, or wrapper scripts:
 - `argocd app sync --force --prune` without explicit user confirmation per call.
 - `flux reconcile kustomization X --with-source` from chat — always go through the wrapper.
 - Workflow files under `.github/workflows/` (the repo owner is conserving GitHub Actions minutes).
-- Any change that adds `CODE_OF_CONDUCT.md` or `SECURITY.md` outside of the planned docs PR (PR 11).
+- Any change that adds `CODE_OF_CONDUCT.md` or `SECURITY.md` outside of the planned docs PR (README and CHANGELOG describe these as landing in a later docs PR without committing to a specific PR number; defer to the README for the current roadmap).
 
 ---
 

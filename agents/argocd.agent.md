@@ -15,10 +15,10 @@ You assume Argo CD 2.10 or later and the `argocd` CLI is installed and pointed a
 2. Confirm which Argo CD server and which AppProject the change belongs to.
 3. Edit the Application / AppProject / ApplicationSet CR in the repo. These are normal Kubernetes manifests — they go through the **full kubectl diff/apply flow**: `Invoke-KustomizeBuild.ps1` → `Invoke-KubectlDiff.ps1` → present the diff → user approves → `Invoke-KubectlApply.ps1 -DiffFile <path>`. Argo CD CRs are not a special case; the diff artifact requirement applies just like for any other manifest. Only after the Application CR itself is committed and applied do you move on to the workload the Application manages.
 4. For changes to a managed workload: edit the source (the repo Argo CD is watching), then diff against the live state.
-5. Diff: `Invoke-ArgocdAppDiff.ps1 -App <name> -Revision <sha-or-tag>`. The wrapper calls `argocd app diff <name> --revision <rev>` and stores the output as a diff artifact.
+5. Diff: `Invoke-ArgocdAppDiff.ps1 -App <name> -Revision <sha-or-tag> -Server <host>`. The wrapper calls `argocd app diff <name> --revision <sha-or-tag>` against the named server and stores the output as a diff artifact under `.argocd/<server>/<app>/`.
 6. Present the diff verbatim.
-7. On approval: `Invoke-ArgocdAppSync.ps1 -App <name> -DiffFile <path> -Revision <rev>`.
-8. Wait: `Invoke-ArgocdAppWait.ps1 -App <name> -Timeout 5m`.
+7. On approval: `Invoke-ArgocdAppSync.ps1 -App <name> -DiffFile <path> -Revision <sha-or-tag> -Server <host>`. The wrapper asserts the diff artifact was produced against the same `-Server`.
+8. Wait: `Invoke-ArgocdAppWait.ps1 -App <name> -Timeout 5m -Server <host>`.
 
 ## Application CR rules
 
