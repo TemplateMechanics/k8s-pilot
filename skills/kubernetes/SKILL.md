@@ -40,7 +40,7 @@ spec:
   restartPolicy: Always              # Always | OnFailure | Never (Jobs use OnFailure or Never)
   terminationGracePeriodSeconds: 30  # increase for stateful workloads
   securityContext:                   # pod-level; per-container override available
-    runAsNonRoot: true               # (recommended) blocks UID 0 at admission
+    runAsNonRoot: true               # (recommended) enforced by the kubelet at container start, and required by PodSecurity Admission "restricted" if the namespace is labeled — NOT a general admission rejection by the apiserver
     fsGroup: 2000                    # makes mounted volumes group-owned for this gid
     seccompProfile:
       type: RuntimeDefault
@@ -291,7 +291,7 @@ spec:
 
 ```yaml
 spec:
-  ingressClassName: nginx            # (required; explicit > annotation) — must reference a real IngressClass
+  ingressClassName: nginx            # (recommended) optional in v1 but always set it explicitly — if omitted, the cluster's default IngressClass (the one with annotation ingressclass.kubernetes.io/is-default-class=true) is used, which can land your Ingress on the wrong controller
   tls:
     - hosts: [app.example.com]
       secretName: app-tls
@@ -528,7 +528,7 @@ configMapGenerator:
 
 secretGenerator:
   - name: app-secrets
-    literals: [api_key=fromenv]      # avoid; pass via --load-restrictor or external
+    literals: [api_key=fromenv]      # avoid in committed kustomizations — `literals` puts the value in source. Use SOPS (with Flux Kustomization spec.decryption), External Secrets Operator, SealedSecrets, or generate the Secret manifest outside kustomize. (`--load-restrictor` only controls cross-directory file loading; it does NOT secure secret material.)
 
 images:
   - name: registry.example.com/app
@@ -587,7 +587,7 @@ dependencies:
 
 **Gotchas:**
 - `appVersion` MUST be quoted if it could be parsed as a number/date (e.g. `"1.0"`, `"2025-01"`).
-- Dependency `version` must be an exact semver; ranges (`^1.0`, `~15`) defeat the audit trail.
+- Dependency `version` accepts semver ranges (`^1.0`, `~15`), but **pin to an exact version** for production usage. Ranges work but defeat reproducibility — a fresh `helm dependency update` on the same `Chart.yaml` may resolve to a different sub-chart version.
 
 ### 8.2 Values and template idioms
 
