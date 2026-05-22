@@ -17,7 +17,7 @@ For every user request that touches cluster state, follow this sequence in order
 5. **Run the matching diff wrapper** for the tool family you're touching (see Section 3). Present the diff output to the user.
 6. **Wait for explicit user approval** of the diff before mutating.
 7. **Run the matching mutation wrapper** with the approved diff artifact and an explicit `-Context` or `-Cluster`.
-8. **Run the post-mutation check** (`kubectl rollout status`, `helm status`, `argocd app wait`, or `flux get kustomization/<name> --context <ctx>` for read-only status) and report the outcome. These are all read-only verifications, not additional mutations.
+8. **Run the post-mutation check** (`kubectl rollout status`, `helm status`, `argocd app wait`, or `flux get kustomization <name> --context <ctx>` for read-only status) and report the outcome. These are all read-only verifications, not additional mutations.
 
 If a wrapper script for the tool you need does not yet exist (the harness is being built up across PRs 4–7), stop and tell the user. Do not silently fall back to typing the bare CLI.
 
