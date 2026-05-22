@@ -49,11 +49,20 @@ Assert-SafePathSegment -Value $Context -Name '-Context'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
 
 # Render first so we can both diff and (later) apply the exact same bytes.
-$renderedPath = & "$PSScriptRoot/Invoke-KustomizeBuild.ps1" -Path $Path -Context $Context -OutputDir $OutputDir
-if ($LASTEXITCODE -ne 0) {
-    # Use exit code 2 (>1) so callers branching on kubectl-diff semantics
-    # (0=clean, 1=diff) do not mistake a render failure for a diff present.
-    Write-Error "Render step failed (exit $LASTEXITCODE); aborting diff."
+# Wrap in try/catch because Invoke-KustomizeBuild.ps1 throws on render error,
+# which under $ErrorActionPreference='Stop' would terminate this script with
+# PowerShell's default exit 1 — colliding with kubectl diff's "diff present"
+# semantics. Catching lets us exit 2 instead, preserving the contract.
+$renderedPath = $null
+try {
+    $renderedPath = & "$PSScriptRoot/Invoke-KustomizeBuild.ps1" -Path $Path -Context $Context -OutputDir $OutputDir
+}
+catch {
+    Write-Error "Render step failed: $($_.Exception.Message)"
+    exit 2
+}
+if (-not $renderedPath) {
+    Write-Error "Render step produced no output path; aborting diff."
     exit 2
 }
 
