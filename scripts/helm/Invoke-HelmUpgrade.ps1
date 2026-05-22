@@ -53,6 +53,11 @@ Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Context   -Name '-Context'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
 
+if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
+    Write-Error "helm not found in PATH."
+    exit 3
+}
+
 $metaFile = "$DiffFile.meta.json"
 if (-not (Test-Path $metaFile)) {
     Write-Error "Diff metadata sidecar not found at '$metaFile'. Regenerate via Invoke-HelmDiff.ps1."
@@ -83,13 +88,17 @@ if (-not (Test-Path $meta.valuesFile)) {
 }
 
 Write-Information "Upgrading helm release '$($meta.release)' in namespace '$Namespace' on context '$Context'..." -InformationAction Continue
+# Note: --create-namespace is omitted intentionally. Helm defaults it to false,
+# and PowerShell's colon-form switch syntax (--create-namespace:$false) would
+# emit the literal "--create-namespace:False" string, which helm rejects as an
+# unknown flag. If a caller actually needs namespace creation, that's an
+# upstream decision (apply the Namespace via kubectl wrappers first).
 & helm upgrade --install $meta.release $meta.chartPath `
     --kube-context $Context `
     --namespace $Namespace `
     --values $meta.valuesFile `
     --atomic `
-    --timeout "${TimeoutSeconds}s" `
-    --create-namespace:$false
+    --timeout "${TimeoutSeconds}s"
 $upgradeExit = $LASTEXITCODE
 
 if ($upgradeExit -ne 0) {

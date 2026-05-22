@@ -60,7 +60,7 @@ Assert-SafePathSegment -Value $Release   -Name '-Release'
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
     Write-Error "helm not found in PATH. Install helm >= 3.13 before using this wrapper."
-    exit 2
+    exit 3
 }
 
 $outDir = Join-Path (Join-Path $OutputDir $Namespace) $Release

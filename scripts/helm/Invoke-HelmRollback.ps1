@@ -69,21 +69,40 @@ if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
 
 # Render cross-revision delta: helm get manifest <release> --revision <target>
 # vs current. This is the "rollback diff" per §3.6.
-$currentManifest = & helm get manifest $Release `
-    --kube-context $Context `
-    --namespace $Namespace 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "helm get manifest (current) failed: $(@($currentManifest) -join "`n")"
-    exit 1
-}
+# Capture stderr to a temp file so any helm warnings (e.g. kubeconfig
+# permission notices) are not embedded into the YAML artifacts.
+$errFile = [System.IO.Path]::GetTempFileName()
+try {
+    $currentManifest = & helm get manifest $Release `
+        --kube-context $Context `
+        --namespace $Namespace 2>$errFile
+    $currentExit = $LASTEXITCODE
+    $currentStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
+    if ($currentExit -ne 0) {
+        Write-Error "helm get manifest (current) failed (exit $currentExit): $currentStderr"
+        exit 1
+    }
+    if ($currentStderr) {
+        Write-Warning "helm get manifest (current) produced stderr (not embedded in artifact):`n$currentStderr"
+    }
 
-$targetManifest = & helm get manifest $Release `
-    --kube-context $Context `
-    --namespace $Namespace `
-    --revision $Revision 2>&1
-if ($LASTEXITCODE -ne 0) {
-    Write-Error "helm get manifest --revision $Revision failed (does that revision exist? Check 'helm history $Release -n $Namespace --kube-context $Context'): $(@($targetManifest) -join "`n")"
-    exit 1
+    Clear-Content -Path $errFile -ErrorAction SilentlyContinue
+    $targetManifest = & helm get manifest $Release `
+        --kube-context $Context `
+        --namespace $Namespace `
+        --revision $Revision 2>$errFile
+    $targetExit = $LASTEXITCODE
+    $targetStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
+    if ($targetExit -ne 0) {
+        Write-Error "helm get manifest --revision $Revision failed (does that revision exist? Check 'helm history $Release -n $Namespace --kube-context $Context'): $targetStderr"
+        exit 1
+    }
+    if ($targetStderr) {
+        Write-Warning "helm get manifest --revision $Revision produced stderr (not embedded in artifact):`n$targetStderr"
+    }
+}
+finally {
+    Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue
 }
 
 $auditDir = Join-Path (Join-Path (Join-Path '.helm' $Context) $Namespace) $Release
