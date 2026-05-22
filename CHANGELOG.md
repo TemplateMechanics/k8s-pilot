@@ -20,6 +20,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `flux.agent.md` — GitRepository/Kustomization/HelmRelease, reconciliation, suspend/resume.
 
 - `skills/kubernetes/SKILL.md`: authoritative reference for Kubernetes kinds (Workloads/Config/Networking/Storage/RBAC/Policy), Kustomize, Helm, Argo CD CRDs, Flux CRDs, cross-tool composition patterns (Helm-under-Argo, Helm-under-Flux, Kustomize-over-Helm), debugging recipes, and field-specific gotchas. Per CLAUDE.md R5 this is the single source of truth — agent personas and scripts link here rather than restate field shapes.
+- `scripts/_lib/Context.ps1`: shared context-safety helpers (`Assert-ContextSafety`, `Get-AmbientContext`, `Test-KubectlContextExists`, `Get-PathBasename`) per CLAUDE.md R3.
+- `scripts/Validate-Manifests.ps1`: canonical cross-cutting validator entrypoint (CLAUDE.md §3.0). Orchestrates kubeconform + kube-score + polaris; gracefully skips missing tools; exits non-zero on any failure.
+- `scripts/kubectl/Invoke-KustomizeBuild.ps1`: render a kustomization to `kustomize-build/<context>/<name>.yaml` (§3.1 Build). Prefers `kustomize` binary, falls back to `kubectl kustomize`.
+- `scripts/kubectl/Invoke-KubectlDiff.ps1`: diff a rendered kustomization against live cluster (§3.1 Diff). Emits `.diff` artifact + `.diff.meta.json` sidecar with context, sourcePath, renderedPath, and SHA-256 for tamper detection. Preserves `kubectl diff` exit semantics (0 = clean, 1 = diff, >1 = error).
+- `scripts/kubectl/Invoke-KubectlApply.ps1`: apply the rendered manifest paired with a reviewed diff artifact (§3.1 Apply). Refuses to run without `-DiffFile`; verifies metadata context matches `-Context`; verifies SHA-256 hasn't drifted since diff. Supports `-ServerSideApply` with `k8s-pilot` field manager.
+- `scripts/kubectl/Invoke-RolloutStatus.ps1`: post-mutation read-only wait for Deployment/StatefulSet/DaemonSet (§3.1 Rollout). `TimeoutSeconds` default 300.
 
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
