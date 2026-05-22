@@ -83,5 +83,5 @@ finally {
     Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue
 }
 
-Write-Host "Rendered $Path -> $outFile"
+Write-Information "Rendered $Path -> $outFile" -InformationAction Continue
 return (Resolve-Path $outFile).Path

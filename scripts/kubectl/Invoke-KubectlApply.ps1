@@ -78,13 +78,16 @@ if ($ServerSideApply) {
     $applyArgs += @('--server-side', '--field-manager', 'k8s-pilot')
 }
 
-Write-Host "Applying '$($meta.renderedPath)' to context '$Context'..."
+Write-Information "Applying '$($meta.renderedPath)' to context '$Context'..." -InformationAction Continue
 & kubectl @applyArgs
 $applyExit = $LASTEXITCODE
 
 if ($applyExit -ne 0) {
-    throw "kubectl apply failed (exit $applyExit)."
+    # Propagate the original kubectl exit code so retry logic / wrappers can
+    # branch on it. A `throw` here would collapse it to exit 1.
+    Write-Error "kubectl apply failed (exit $applyExit)."
+    exit $applyExit
 }
 
-Write-Host "Apply complete. Consider running Invoke-RolloutStatus.ps1 for workload kinds."
+Write-Information "Apply complete. Consider running Invoke-RolloutStatus.ps1 for workload kinds." -InformationAction Continue
 exit 0

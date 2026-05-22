@@ -50,7 +50,10 @@ Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientC
 # Render first so we can both diff and (later) apply the exact same bytes.
 $renderedPath = & "$PSScriptRoot/Invoke-KustomizeBuild.ps1" -Path $Path -Context $Context -OutputDir $OutputDir
 if ($LASTEXITCODE -ne 0) {
-    throw "Render step failed; aborting diff."
+    # Use exit code 2 (>1) so callers branching on kubectl-diff semantics
+    # (0=clean, 1=diff) do not mistake a render failure for a diff present.
+    Write-Error "Render step failed (exit $LASTEXITCODE); aborting diff."
+    exit 2
 }
 
 $name = Get-PathBasename -Path $Path
@@ -63,7 +66,11 @@ $diffOutput = & kubectl --context $Context diff -f $renderedPath 2>&1
 $diffExit   = $LASTEXITCODE
 
 if ($diffExit -gt 1) {
-    throw "kubectl diff failed (exit $diffExit) for '$renderedPath': $($diffOutput -join "`n")"
+    # Surface kubectl's stderr/stdout for diagnosis, then propagate the
+    # original kubectl exit code so callers can distinguish error (>1) from
+    # diff-present (1). A `throw` here would collapse everything into exit 1.
+    Write-Error "kubectl diff failed (exit $diffExit) for '$renderedPath': $($diffOutput -join "`n")"
+    exit $diffExit
 }
 
 $diffOutput | Set-Content -Path $diffFile -Encoding utf8

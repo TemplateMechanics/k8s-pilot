@@ -122,14 +122,20 @@ $summary = [pscustomobject]@{
     Results = $results
 }
 
-# Human-readable status goes to the Information stream so stdout stays a
-# clean JSON document for downstream tooling.
+# Stream routing:
+#   - JSON summary goes to stdout (success stream) — this is the structured
+#     contract for downstream tooling and the only thing on stdout.
+#   - Skips are surfaced as Warnings (a skipped validator is something the
+#     operator should know about but isn't an error).
+#   - Pass / fail status lines and tool stdout go to the Information stream
+#     with -InformationAction Continue, so callers can silence them with
+#     -InformationAction SilentlyContinue without losing the JSON document.
 foreach ($r in $results) {
     if ($r.Skipped) {
         Write-Warning "$($r.Tool): skipped ($($r.Notes))"
     }
     elseif ($r.ExitCode -ne 0) {
-        Write-Warning "$($r.Tool): FAIL (exit $($r.ExitCode))"
+        Write-Information "$($r.Tool): FAIL (exit $($r.ExitCode))" -InformationAction Continue
         Write-Information $r.Output -InformationAction Continue
     }
     else {
