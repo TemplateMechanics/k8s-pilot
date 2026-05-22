@@ -58,6 +58,7 @@ $ErrorActionPreference = 'Stop'
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
 Assert-SafePathSegment -Value $Context   -Name '-Context'
+Assert-NonFlagArg      -Value $Release   -Name '-Release'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
@@ -101,16 +102,18 @@ if ($diffExit -ne 0 -and $diffExit -ne 2) {
 
 $diffOutput | Set-Content -Path $diffFile -Encoding utf8
 
+$valuesSha = (Get-FileHash -Algorithm SHA256 -Path $ValuesFile).Hash
 $meta = [pscustomobject]@{
-    schemaVersion = 1
-    artifactKind  = 'helm-diff'
-    context       = $Context
-    namespace     = $Namespace
-    release       = $Release
-    chartPath     = (Resolve-Path $ChartPath).Path
-    valuesFile    = (Resolve-Path $ValuesFile).Path
-    diffExitCode  = $diffExit
-    generatedAt   = (Get-Date -AsUTC).ToString('o')
+    schemaVersion   = 2
+    artifactKind    = 'helm-diff'
+    context         = $Context
+    namespace       = $Namespace
+    release         = $Release
+    chartPath       = (Resolve-Path $ChartPath).Path
+    valuesFile      = (Resolve-Path $ValuesFile).Path
+    valuesFileSha256 = $valuesSha
+    diffExitCode    = $diffExit
+    generatedAt     = (Get-Date -AsUTC).ToString('o')
 }
 $meta | ConvertTo-Json -Depth 5 | Set-Content -Path $metaFile -Encoding utf8
 

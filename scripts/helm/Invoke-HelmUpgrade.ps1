@@ -93,6 +93,30 @@ if (-not (Test-Path $meta.valuesFile)) {
     exit 4
 }
 
+# Defend against argument injection: a corrupted/hand-edited sidecar where
+# release starts with '-' would be parsed as a helm flag.
+try {
+    Assert-NonFlagArg -Value $meta.release -Name 'metadata.release'
+}
+catch {
+    Write-Error "Diff metadata release value is unsafe: $($_.Exception.Message). Regenerate via Invoke-HelmDiff.ps1."
+    exit 4
+}
+
+# Verify the values file hasn't drifted since the diff was produced.
+# (schemaVersion 1 sidecars predate this field; treat as missing-hash skip
+#  with a warning so legacy artifacts don't silently bypass the check.)
+if ($meta.PSObject.Properties.Name -contains 'valuesFileSha256' -and $meta.valuesFileSha256) {
+    $currentValuesSha = (Get-FileHash -Algorithm SHA256 -Path $meta.valuesFile).Hash
+    if ($currentValuesSha -ne $meta.valuesFileSha256) {
+        Write-Error "Values file '$($meta.valuesFile)' has changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
+        exit 4
+    }
+}
+else {
+    Write-Warning "Diff metadata predates valuesFileSha256 (schemaVersion < 2); skipping values-drift check. Regenerate the diff to enable it."
+}
+
 Write-Information "Upgrading helm release '$($meta.release)' in namespace '$Namespace' on context '$Context'..." -InformationAction Continue
 # Note: --create-namespace is omitted intentionally. Helm defaults it to false,
 # and PowerShell's colon-form switch syntax (--create-namespace:$false) would

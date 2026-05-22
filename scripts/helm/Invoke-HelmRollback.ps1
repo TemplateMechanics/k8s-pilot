@@ -70,6 +70,7 @@ $ErrorActionPreference = 'Stop'
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
 Assert-SafePathSegment -Value $Context   -Name '-Context'
+Assert-NonFlagArg      -Value $Release   -Name '-Release'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
@@ -119,7 +120,9 @@ $auditDir = Join-Path (Join-Path (Join-Path '.helm' $Context) $Namespace) $Relea
 if (-not (Test-Path $auditDir)) {
     New-Item -ItemType Directory -Path $auditDir -Force | Out-Null
 }
-$timestamp = Get-Date -AsUTC -Format 'yyyyMMdd-HHmmss'
+# Millisecond-precision timestamp to avoid collisions when two rollbacks for
+# the same release fire within the same second.
+$timestamp = Get-Date -AsUTC -Format 'yyyyMMdd-HHmmssfff'
 $currentFile = Join-Path $auditDir "$timestamp-current.yaml"
 $targetFile  = Join-Path $auditDir "$timestamp-revision-$Revision.yaml"
 $currentManifest | Set-Content -Path $currentFile -Encoding utf8

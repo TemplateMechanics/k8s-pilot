@@ -89,6 +89,29 @@ function Get-PathBasename {
     return (Split-Path -Path (Resolve-Path -Path $Path).Path -Leaf)
 }
 
+function Assert-NonFlagArg {
+    <#
+    .SYNOPSIS
+        Rejects values that look like CLI flags (start with '-').
+    .DESCRIPTION
+        Used to validate values that become positional arguments to a native
+        CLI invocation. If a value starts with '-' the CLI parser (cobra etc.)
+        may treat it as a flag, leading to argument injection or unexpected
+        behavior. This helper is complementary to Assert-SafePathSegment.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $Value,
+        [Parameter(Mandatory)] [string] $Name
+    )
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        throw "$Name must not be empty."
+    }
+    if ($Value.StartsWith('-')) {
+        throw "$Name '$Value' is unsafe: must not start with '-' (would be parsed as a CLI flag)."
+    }
+}
+
 function Assert-SafePathSegment {
     <#
     .SYNOPSIS

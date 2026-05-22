@@ -57,6 +57,7 @@ $ErrorActionPreference = 'Stop'
 
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
+Assert-NonFlagArg      -Value $Release   -Name '-Release'
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
     Write-Error "helm not found in PATH. Install helm >= 3.13 before using this wrapper."
