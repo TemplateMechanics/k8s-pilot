@@ -57,7 +57,7 @@ User request
 1. **Four-tool layered control plane**
    `kubectl` + `kustomize` for raw manifests, `helm` for chart-managed workloads, `argocd` and `flux` for GitOps reconciliation — all wrapped by a single consistent script contract (`Invoke-*` verbs, plan-before-apply discipline, structured output).
 2. **Plan-as-artifact discipline**
-   `Invoke-KubectlDiff.ps1`, `Invoke-HelmDiff.ps1`, and `Invoke-ArgocdDiff.ps1` (**planned, PRs 4–6**) emit structured diff artifacts that downstream apply/upgrade scripts require. This makes change review explicit and repeatable.
+   `Invoke-KubectlDiff.ps1`, `Invoke-HelmDiff.ps1`, and `Invoke-ArgocdAppDiff.ps1` (**planned, PRs 4–6**) emit structured diff artifacts that downstream apply/upgrade scripts require. This makes change review explicit and repeatable.
 3. **MCP-first reads, scripts-only writes**
    Agent workflows use MCP for live cluster context and wrappers for mutations to avoid direct, unsafe CLI behavior. The AI may never type `kubectl apply -f` or `helm upgrade` directly.
 4. **Context-pinning safety**
@@ -101,7 +101,7 @@ User request
 | Remember every validation/lint/security command | `./scripts/Validate-Manifests.ps1` (planned) runs kubeconform + kube-score + polaris |
 | Risk direct `kubectl apply` against the wrong context | `Invoke-KubectlApply.ps1` (planned) requires an explicit `-Context` and a saved diff |
 | Risk a blind `helm upgrade` | `Invoke-HelmUpgrade.ps1` (planned) requires the output of `Invoke-HelmDiff.ps1` |
-| Sync the wrong Argo CD revision | `Invoke-ArgocdSync.ps1` (planned) requires an explicit `-Revision` and a diff artifact |
+| Sync the wrong Argo CD revision | `Invoke-ArgocdAppSync.ps1` (planned) requires an explicit `-Revision` and a diff artifact |
 | Drift between `flux build` and what's reconciled | `Invoke-FluxReconcile.ps1` (planned) emits a build/diff/reconcile triplet |
 | Hand-poll many clusters for the same question | `scripts/multi-cluster/Invoke-KubectlGetAcross.ps1` (planned) fans out with a label selector and aggregates results |
 | Accidentally mutate many clusters at once | Multi-cluster mutations require `-AcknowledgeMultiClusterMutation` and exclude `tier=prod` unless explicitly named |
