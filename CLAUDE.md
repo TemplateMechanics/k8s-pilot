@@ -27,7 +27,7 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 
 | # | Rule |
 |---|------|
-| R1 | Never call any mutating CLI invocation of `kubectl`, `helm`, `argocd`, or `flux` directly. (`kustomize` is a local render tool and never mutates cluster state — `kustomize build` is always allowed directly.) This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly **only for ad-hoc investigation**. When you are on the mutation path (Section 1 step 5), you must still go through the matching `Invoke-*Diff.ps1` wrapper — the wrapper emits the diff artifact that the mutation wrapper requires, which a bare `kubectl diff` / `helm diff` / `argocd app diff` / `flux diff` does not. |
+| R1 | Never call any mutating CLI invocation of `kubectl`, `helm`, `argocd`, or `flux` directly. (`kustomize` is a local render tool and never mutates cluster state — `kustomize build` is always allowed directly.) This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly for **(a) ad-hoc investigation** and **(b) the post-mutation verification step** of Section 1 step 8 (e.g. `helm status`, `flux get kustomization`, `argocd app wait`, `kubectl rollout status`). When you are on the mutation path (Section 1 step 5), you must still go through the matching `Invoke-*Diff.ps1` wrapper — the wrapper emits the diff artifact that the mutation wrapper requires, which a bare `kubectl diff` / `helm diff` / `argocd app diff` / `flux diff` does not. |
 | R2 | Never mutate cluster state without first showing a diff and getting explicit user approval for that specific diff. The metadata-only exception class (Section 3.6) carves out a narrow set of mutations whose intent is captured by the wrapper parameters themselves; those still require explicit user approval and a recorded `-Reason`. |
 | R3 | Never trust the ambient kubeconfig context. Every mutation wrapper requires an explicit `-Context <name>` argument or a `-Cluster <name>` reference resolved through `config/clusters.yaml` (planned, PR 8). |
 | R4 | Never fan out a mutation across multiple clusters unless the user explicitly passes `-AcknowledgeMultiClusterMutation`, and never include `tier=prod` clusters in a fan-out selector unless they are named explicitly. |
@@ -70,12 +70,14 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 
 ### 3.3 `argocd`  (scripts/argocd/, planned PR 6)
 
+Argo CD has its own session/server state independent of the kubectl context (the `argocd` CLI stores its login in `~/.config/argocd/config` by default, which is mutable global state similar to kubeconfig). To prevent accidentally targeting the wrong Argo CD instance, all wrappers below take a mandatory `-Server <host>` argument, and the wrappers use a repo-local config dir (`.argocd/`) instead of `~/.config/argocd/` so sessions are scoped to the repo. Each wrapper asserts that the active logged-in server matches the `-Server` argument and refuses to run otherwise.
+
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
-| Login | `Invoke-ArgocdLogin.ps1` | `-Server` | Stores session in the gitignored Argo CD config dir |
-| App diff | `Invoke-ArgocdAppDiff.ps1` | `-App`, `-Revision` | Diff artifact at `.argocd/<app>/<revision>.diff` |
-| App sync | `Invoke-ArgocdAppSync.ps1` | `-App`, `-DiffFile`, `-Revision` | Mutation; requires diff artifact |
-| App wait | `Invoke-ArgocdAppWait.ps1` | `-App`, `-Timeout` | Blocks until Healthy + Synced |
+| Login | `Invoke-ArgocdLogin.ps1` | `-Server` | Stores session in the repo-local `.argocd/` (gitignored) |
+| App diff | `Invoke-ArgocdAppDiff.ps1` | `-App`, `-Revision`, `-Server` | Diff artifact at `.argocd/<server>/<app>/<revision>.diff` |
+| App sync | `Invoke-ArgocdAppSync.ps1` | `-App`, `-DiffFile`, `-Revision`, `-Server` | Mutation; requires diff artifact. Asserts the diff artifact was produced against the same `-Server`. |
+| App wait | `Invoke-ArgocdAppWait.ps1` | `-App`, `-Timeout`, `-Server` | Blocks until Healthy + Synced on the named server |
 
 ### 3.4 `flux`  (scripts/flux/, planned PR 7)
 
