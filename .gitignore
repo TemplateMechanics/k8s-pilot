@@ -1,0 +1,61 @@
+# --- Editor / OS noise ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+*.iml
+
+# --- VS Code (keep workspace config, ignore per-user state) ---
+.vscode/*.log
+.vscode/.history/
+.vscode/launch.json
+
+# --- Secrets and local credentials ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+kubeconfig
+kubeconfig.*
+.kube/
+!.kube/.gitkeep
+
+# --- Kubernetes / Helm / Argo CD / Flux working state ---
+charts/*.tgz
+charts/**/charts/
+helm-output/
+helmfile.lock
+*.kubeconfig
+.helm/
+.argocd/
+.fluxcd/
+.flux/
+
+# --- Kustomize build output ---
+kustomize-build/
+*.kustomize.out.yaml
+
+# --- Generated MCP runtime state (session-local) ---
+.vscode/mcp.session.json
+.vscode/mcp.runtime.json
+
+# --- Tooling caches ---
+.cache/
+.tmp/
+*.bak
+*.tmp
+*.log
+
+# --- PowerShell artifacts ---
+PSScriptAnalyzerSettings.psd1.bak
+
+# --- Test output ---
+TestResults/
+coverage/
+*.coverage

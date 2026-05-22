@@ -1,0 +1,37 @@
+# Normalize line endings on commit
+* text=auto eol=lf
+
+# PowerShell scripts must use CRLF on disk
+*.ps1   text eol=crlf
+*.psm1  text eol=crlf
+*.psd1  text eol=crlf
+
+# Shell scripts must stay LF
+*.sh    text eol=lf
+
+# Markdown / config: LF
+*.md    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.json  text eol=lf
+*.toml  text eol=lf
+
+# Kubernetes manifests
+*.k8s.yaml      text eol=lf
+*.kustomization.yaml text eol=lf
+
+# Helm chart files
+Chart.yaml      text eol=lf
+values.yaml     text eol=lf
+values.*.yaml   text eol=lf
+*.tpl           text eol=lf
+
+# Treat these as binary
+*.tgz   binary
+*.gz    binary
+*.zip   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.ico   binary
+*.pdf   binary
