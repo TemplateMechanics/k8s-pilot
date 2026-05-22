@@ -9,9 +9,10 @@
     is also passed.
 
     Sourced by other wrappers via:  . "$PSScriptRoot/../_lib/Context.ps1"
-#>
 
-$ErrorActionPreference = 'Stop'
+    Each entrypoint script is responsible for setting its own
+    $ErrorActionPreference; this library does NOT mutate caller scope.
+#>
 
 function Assert-KubectlAvailable {
     [CmdletBinding()]

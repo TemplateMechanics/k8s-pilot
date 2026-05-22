@@ -28,8 +28,18 @@
     Defaults to 1.28.0 to match the repo floor.
 
 .OUTPUTS
-    PSCustomObject with per-tool result (PassCount/FailCount/Skipped/Notes).
-    Exits non-zero if any non-skipped tool reports failure.
+    JSON object on stdout with the shape:
+      { "Path": "<absolute-path>",
+        "Results": [
+          { "Tool": "kubeconform"|"kube-score"|"polaris",
+            "Skipped": <bool>,
+            "ExitCode": <int>,        # present when Skipped=false
+            "Output":   "<text>",     # present when Skipped=false
+            "Notes":    "<text>"      # present when Skipped=true
+          }, ... ] }
+    Human-readable per-tool status lines are written to the Information stream.
+    Exit codes: 0 = all passed (or all skipped is treated as 2), 1 = at least
+    one non-skipped tool failed, 2 = no validators ran.
 
 .EXAMPLE
     pwsh ./scripts/Validate-Manifests.ps1 -Path kustomize-build/staging/web.yaml
@@ -112,20 +122,22 @@ $summary = [pscustomobject]@{
     Results = $results
 }
 
-# Write summary to stdout as JSON for downstream tooling, plus human-readable lines to stderr.
+# Human-readable status goes to the Information stream so stdout stays a
+# clean JSON document for downstream tooling.
 foreach ($r in $results) {
     if ($r.Skipped) {
         Write-Warning "$($r.Tool): skipped ($($r.Notes))"
     }
     elseif ($r.ExitCode -ne 0) {
         Write-Warning "$($r.Tool): FAIL (exit $($r.ExitCode))"
-        Write-Host $r.Output
+        Write-Information $r.Output -InformationAction Continue
     }
     else {
-        Write-Host "$($r.Tool): pass"
+        Write-Information "$($r.Tool): pass" -InformationAction Continue
     }
 }
 
+# Single JSON document on stdout.
 $summary | ConvertTo-Json -Depth 5
 
 # Exit non-zero if any non-skipped tool failed.

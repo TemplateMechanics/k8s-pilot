@@ -51,21 +51,37 @@ if (-not (Test-Path $outDir)) {
 $outFile = Join-Path $outDir "$name.yaml"
 
 # Prefer kustomize binary if available; fall back to `kubectl kustomize`.
-$rendered = if (Get-Command kustomize -ErrorAction SilentlyContinue) {
-    & kustomize build $Path 2>&1
-}
-elseif (Get-Command kubectl -ErrorAction SilentlyContinue) {
-    Write-Warning "kustomize binary not found; falling back to 'kubectl kustomize'."
-    & kubectl kustomize $Path 2>&1
-}
-else {
-    throw "Neither 'kustomize' nor 'kubectl' is on PATH."
-}
-if ($LASTEXITCODE -ne 0) {
-    throw "kustomize build failed for '$Path' (exit $LASTEXITCODE): $($rendered -join "`n")"
-}
+# Capture stderr to a temp file so it cannot pollute the rendered YAML (a
+# 2>&1 merge would inject warnings into the file and break diff/apply).
+$errFile = [System.IO.Path]::GetTempFileName()
+try {
+    if (Get-Command kustomize -ErrorAction SilentlyContinue) {
+        $rendered = & kustomize build $Path 2>$errFile
+    }
+    elseif (Get-Command kubectl -ErrorAction SilentlyContinue) {
+        Write-Warning "kustomize binary not found; falling back to 'kubectl kustomize'."
+        $rendered = & kubectl kustomize $Path 2>$errFile
+    }
+    else {
+        throw "Neither 'kustomize' nor 'kubectl' is on PATH."
+    }
 
-$rendered | Set-Content -Path $outFile -Encoding utf8
+    $stderrContent = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "kustomize build failed for '$Path' (exit $LASTEXITCODE): $stderrContent"
+    }
+    if ($stderrContent) {
+        # Non-fatal warnings from kustomize go to stderr; surface them but
+        # do NOT include them in the rendered output.
+        Write-Warning "kustomize produced stderr output (not included in rendered file):`n$stderrContent"
+    }
+
+    $rendered | Set-Content -Path $outFile -Encoding utf8
+}
+finally {
+    Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue
+}
 
 Write-Host "Rendered $Path -> $outFile"
 return (Resolve-Path $outFile).Path

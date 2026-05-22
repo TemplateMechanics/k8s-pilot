@@ -22,8 +22,9 @@
     Override the default kustomize-build/ directory.
 
 .OUTPUTS
-    The resolved path of the diff artifact file (.diff).
-    Exit code 0 = no diff, 1 = diff present (kubectl diff convention).
+    Writes the resolved path of the diff artifact file (.diff) to the pipeline
+    on its own line, so scripted callers can capture it via `$diff = & ...`.
+    Exit code 0 = no diff, 1 = diff present (kubectl diff convention), >1 = error.
 
 .EXAMPLE
     pwsh ./scripts/kubectl/Invoke-KubectlDiff.ps1 -Path apps/web/overlays/staging -Context staging
@@ -81,11 +82,14 @@ $meta = [pscustomobject]@{
 $meta | ConvertTo-Json -Depth 5 | Set-Content -Path $metaFile -Encoding utf8
 
 if ($diffExit -eq 0) {
-    Write-Host "No diff: rendered manifest already matches cluster state."
+    Write-Information "No diff: rendered manifest already matches cluster state." -InformationAction Continue
 }
 else {
-    Write-Host "Diff written to $diffFile (meta: $metaFile). Review before apply."
+    Write-Information "Diff written to $diffFile (meta: $metaFile). Review before apply." -InformationAction Continue
 }
+
+# Emit the diff artifact path to the pipeline so callers can capture it.
+Write-Output (Resolve-Path $diffFile).Path
 
 # Preserve kubectl diff's exit semantics so scripted callers can branch.
 exit $diffExit
