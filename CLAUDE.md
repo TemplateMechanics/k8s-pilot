@@ -42,11 +42,18 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 
 Every tool family has a parallel script contract: a **diff** wrapper that emits an artifact, and a **mutation** wrapper that requires that artifact.
 
+### 3.0 Cross-cutting validation  (scripts/, planned PR 4)
+
+This wrapper is not tied to any single tool family; it operates on rendered manifests regardless of how they were produced (kubectl, kustomize, helm template, flux build, argocd manifest dump).
+
+| Verb | Wrapper | Required arg | Emits / requires |
+|------|---------|--------------|------------------|
+| Validate | `scripts/Validate-Manifests.ps1` | `-Path` | Pass/fail summary; orchestrates kubeconform + kube-score + polaris internally. Canonical validator entrypoint (matches the path used in README and copilot-instructions). PowerShell-idiomatic name (`Validate-*` is an approved verb); other wrappers use `Invoke-*` only when they wrap a single external CLI invocation. |
+
 ### 3.1 `kubectl` + `kustomize`  (scripts/kubectl/, planned PR 4)
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
-| Validate | `Validate-Manifests.ps1` | `-Path` | Pass/fail summary; orchestrates kubeconform + kube-score + polaris internally. This is the canonical validator entrypoint (also referenced from README and copilot-instructions). PowerShell-idiomatic name (`Validate-*` is an approved verb); other wrappers use `Invoke-*` only when they wrap an external CLI invocation. |
 | Build | `Invoke-KustomizeBuild.ps1` | `-Path`, `-Context` | Rendered manifest to `kustomize-build/<context>/<name>.yaml` |
 | Diff | `Invoke-KubectlDiff.ps1` | `-Path`, `-Context` | Diff artifact at `kustomize-build/<context>/<name>.diff` |
 | Apply | `Invoke-KubectlApply.ps1` | `-DiffFile`, `-Context` | Applies only the manifest that produced the diff |

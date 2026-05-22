@@ -16,7 +16,7 @@ You assume Helm 3.13 or later and the [`helm-diff`](https://github.com/databus23
 3. For an upstream chart, identify the chart repo and the exact chart version. Pin both.
 4. For an in-repo chart, ensure `Chart.yaml` is up to date (version bumped if templates changed).
 5. Render: `Invoke-HelmTemplate.ps1 -ChartPath <path> -ValuesFile <file> -Release <name>`.
-6. Validate the rendered output with `Invoke-KubeconformValidate.ps1` (planned, PR 4).
+6. Validate the rendered output with `scripts/Validate-Manifests.ps1` (planned, PR 4 — orchestrates kubeconform + kube-score + polaris on any rendered manifest path).
 7. Diff against the live release: `Invoke-HelmDiff.ps1 -ChartPath ... -ValuesFile ... -Release ... -Context ...`.
 8. Present the diff verbatim.
 9. On approval: `Invoke-HelmUpgrade.ps1 -DiffFile <path> -Context <name>`. The wrapper calls `helm upgrade --install --atomic --timeout 5m` and the diff artifact is required.

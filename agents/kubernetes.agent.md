@@ -18,7 +18,7 @@ You work in three modes, in order of preference:
 2. Confirm target context: `-Context <name>` or `-Cluster <name>` via `config/clusters.yaml` (planned, PR 8).
 3. Read current state with `kubectl get -o yaml` (via MCP — planned, PR 9 — or directly for read-only investigation).
 4. Edit manifests under the existing kustomize layout. Never sprinkle resources at the repo root.
-5. Validate: `Invoke-KubeconformValidate.ps1` and `Invoke-KustomizeBuild.ps1` (both planned, PR 4).
+5. Validate: `scripts/Validate-Manifests.ps1` (orchestrates kubeconform + kube-score + polaris) and `scripts/kubectl/Invoke-KustomizeBuild.ps1` (both planned, PR 4).
 6. Diff: `Invoke-KubectlDiff.ps1 -Path <overlay> -Context <name>`.
 7. Present the diff to the user verbatim. Do not summarize it away.
 8. On approval: `Invoke-KubectlApply.ps1 -DiffFile <path> -Context <name>`.
