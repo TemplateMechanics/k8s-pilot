@@ -914,7 +914,7 @@ Renders the chart then continues normal kustomize processing.
 - **`Service.spec.selector` vs `Deployment.spec.selector`**: Service selects pods directly by labels; Deployment selects pods it owns by `selector.matchLabels` (immutable).
 - **`Deployment.spec.selector.matchLabels`**: immutable. Wrong labels at creation = delete and recreate.
 - **`ServiceAccount` token in 1.24+**: no auto-generated Secret. Use TokenRequest API.
-- **`ConfigMap` change propagation**: env-from values do NOT update on rolling restart; only volume-mounted values do (~1 min sync).
+- **`ConfigMap` change propagation**: `envFrom` / `env.valueFrom` values do NOT update live in a running container; the pod must restart to pick up changes (a rolling restart works). Volume-mounted values DO update live, after kubelet sync (~1 min). Matches §2.1.
 - **`StatefulSet.spec.serviceName`**: must reference a **headless** Service (`clusterIP: None`).
 - **`HPA` and `Deployment.spec.replicas`**: HPA owns replicas; remove the field from the Deployment manifest or add `ignoreDifferences` in Argo CD.
 - **`PodDisruptionBudget`**: `maxUnavailable: 0` or `minAvailable: 100%` blocks evictions entirely — surprising during node drains.
