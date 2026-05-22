@@ -16,7 +16,7 @@ For every user request that touches cluster state, follow this sequence in order
 4. **Edit manifests, values, kustomizations, charts, or app definitions** using the repository's existing patterns.
 5. **Run the matching diff wrapper** for the tool family you're touching (see Section 3). Present the diff output to the user.
 6. **Wait for explicit user approval** of the diff before mutating.
-7. **Run the matching mutation wrapper** with the approved diff artifact and an explicit `-Context` or `-Cluster`.
+7. **Run the matching mutation wrapper** with the approved diff artifact and an explicit target identifier: `-Context <name>` (or `-Cluster <name>` resolved via `config/clusters.yaml`) for kubectl/helm/flux wrappers; `-Server <host>` for argocd wrappers, which target an Argo CD instance rather than a Kubernetes context (see §3.3).
 8. **Run the post-mutation check** (`kubectl rollout status`, `helm status`, `argocd app wait`, or `flux get kustomization <name> --context <ctx>` for read-only status) and report the outcome. These are all read-only verifications, not additional mutations.
 
 If a wrapper script for the tool you need does not yet exist (the harness is being built up across PRs 4–7), stop and tell the user. Do not silently fall back to typing the bare CLI.
