@@ -63,7 +63,7 @@ apps/<app-name>/
 
 When debugging:
 
-- `kubectl get events --sort-by=.lastTimestamp -n <ns>` — almost always the first call.
+- `kubectl get events --sort-by=.metadata.creationTimestamp -n <ns>` — almost always the first call. (`.lastTimestamp` works only on the legacy `core/v1` Events API; modern `events.k8s.io/v1` uses `.series.lastObservedTime` / `.deprecatedLastTimestamp`. `.metadata.creationTimestamp` is portable across both.)
 - `kubectl describe pod/<name> -n <ns>` — Events block at the bottom is what you want.
 - `kubectl logs <pod> -n <ns> --previous` — for crash loops.
 - `kubectl top pod -n <ns>` — requires metrics-server, but reveals OOM patterns.
