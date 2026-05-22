@@ -27,7 +27,7 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 
 | # | Rule |
 |---|------|
-| R1 | Never call any mutating CLI invocation of `kubectl`, `kustomize`, `helm`, `argocd`, or `flux` directly. This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly. |
+| R1 | Never call any mutating CLI invocation of `kubectl`, `kustomize`, `helm`, `argocd`, or `flux` directly. This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly **only for ad-hoc investigation**. When you are on the mutation path (Section 1 step 5), you must still go through the matching `Invoke-*Diff.ps1` wrapper — the wrapper emits the diff artifact that the mutation wrapper requires, which a bare `kubectl diff` / `helm diff` / `argocd app diff` / `flux diff` does not. |
 | R2 | Never mutate cluster state without first showing a diff and getting explicit user approval for that specific diff. The metadata-only exception class (Section 3.6) carves out a narrow set of mutations whose intent is captured by the wrapper parameters themselves; those still require explicit user approval and a recorded `-Reason`. |
 | R3 | Never trust the ambient kubeconfig context. Every mutation wrapper requires an explicit `-Context <name>` argument or a `-Cluster <name>` reference resolved through `config/clusters.yaml` (planned, PR 8). |
 | R4 | Never fan out a mutation across multiple clusters unless the user explicitly passes `-AcknowledgeMultiClusterMutation`, and never include `tier=prod` clusters in a fan-out selector unless they are named explicitly. |
@@ -63,10 +63,10 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
-| Template | `Invoke-HelmTemplate.ps1` | `-ChartPath`, `-ValuesFile`, `-Release` | Rendered manifests to `helm-output/<release>/templated.yaml` |
-| Diff | `Invoke-HelmDiff.ps1` | `-ChartPath`, `-ValuesFile`, `-Release`, `-Context` | Diff artifact at `helm-output/<release>/<context>.diff` |
-| Upgrade | `Invoke-HelmUpgrade.ps1` | `-DiffFile`, `-Context` | Requires `helm-diff` plugin |
-| Rollback | `Invoke-HelmRollback.ps1` | `-Release`, `-Revision`, `-Context`, `-Reason` | Metadata-only mutation (Section 3.6); requires explicit revision number. The wrapper renders `helm get manifest <release> --revision <Revision>` vs the current release and presents that as the rollback diff before executing. |
+| Template | `Invoke-HelmTemplate.ps1` | `-ChartPath`, `-ValuesFile`, `-Release`, `-Namespace` | Rendered manifests to `helm-output/<namespace>/<release>/templated.yaml`. Namespace is mandatory because Helm releases are namespaced and `<release>` alone is not unique. |
+| Diff | `Invoke-HelmDiff.ps1` | `-ChartPath`, `-ValuesFile`, `-Release`, `-Namespace`, `-Context` | Diff artifact at `helm-output/<namespace>/<release>/<context>.diff` |
+| Upgrade | `Invoke-HelmUpgrade.ps1` | `-DiffFile`, `-Namespace`, `-Context` | Requires `helm-diff` plugin. `-Namespace` is mandatory and must match the namespace recorded in the diff artifact. |
+| Rollback | `Invoke-HelmRollback.ps1` | `-Release`, `-Namespace`, `-Revision`, `-Context`, `-Reason` | Metadata-only mutation (Section 3.6); requires explicit revision number and namespace. The wrapper renders `helm get manifest <release> -n <namespace> --revision <Revision>` vs the current release and presents that as the rollback diff before executing. |
 
 ### 3.3 `argocd`  (scripts/argocd/, planned PR 6)
 

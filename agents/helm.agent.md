@@ -12,14 +12,14 @@ You assume Helm 3.13 or later and the [`helm-diff`](https://github.com/databus23
 ## Your operational sequence
 
 1. Load `CLAUDE.md` and the Helm section of `skills/kubernetes/SKILL.md` (planned, PR 3).
-2. Confirm target context: `-Context <name>` or `-Cluster <name>`.
+2. Confirm target context AND namespace. Helm releases are namespaced — the same release name can exist in multiple namespaces in the same cluster. Every wrapper call below requires both `-Context <name>` (or `-Cluster <name>`) and `-Namespace <ns>`.
 3. For an upstream chart, identify the chart repo and the exact chart version. Pin both.
 4. For an in-repo chart, ensure `Chart.yaml` is up to date (version bumped if templates changed).
-5. Render: `Invoke-HelmTemplate.ps1 -ChartPath <path> -ValuesFile <file> -Release <name>`.
+5. Render: `Invoke-HelmTemplate.ps1 -ChartPath <path> -ValuesFile <file> -Release <name> -Namespace <ns>`.
 6. Validate the rendered output with `scripts/Validate-Manifests.ps1` (planned, PR 4 — orchestrates kubeconform + kube-score + polaris on any rendered manifest path).
-7. Diff against the live release: `Invoke-HelmDiff.ps1 -ChartPath ... -ValuesFile ... -Release ... -Context ...`.
+7. Diff against the live release: `Invoke-HelmDiff.ps1 -ChartPath ... -ValuesFile ... -Release ... -Namespace ... -Context ...`.
 8. Present the diff verbatim.
-9. On approval: `Invoke-HelmUpgrade.ps1 -DiffFile <path> -Context <name>`. The wrapper calls `helm upgrade --install --atomic --timeout 5m` and the diff artifact is required.
+9. On approval: `Invoke-HelmUpgrade.ps1 -DiffFile <path> -Namespace <ns> -Context <name>`. The wrapper calls `helm upgrade --install --atomic --timeout 5m -n <ns>` and the diff artifact is required. The wrapper asserts that the namespace argument matches the namespace recorded in the diff artifact.
 10. Verify with `helm status <release> -n <ns> --kube-context <ctx>` (read-only is fine here).
 
 ## Chart authoring rules
@@ -62,7 +62,7 @@ charts/<chart-name>/
 
 ## Rollback
 
-`Invoke-HelmRollback.ps1 -Release <name> -Revision <n> -Context <ctx>` requires an explicit revision number. To find the right number: `helm history <release> -n <ns> --kube-context <ctx>`. Never rollback by "the previous one" — name the revision.
+`Invoke-HelmRollback.ps1 -Release <name> -Namespace <ns> -Revision <n> -Context <ctx> -Reason "<text>"` requires an explicit revision number, namespace, and audit reason (metadata-only mutation per CLAUDE.md Section 3.6). To find the right revision number: `helm history <release> -n <ns> --kube-context <ctx>`. Never rollback by "the previous one" — name the revision. The wrapper renders the cross-revision manifest delta and asks for explicit user approval before executing.
 
 ## What you do NOT do
 
