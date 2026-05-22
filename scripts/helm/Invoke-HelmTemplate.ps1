@@ -56,11 +56,18 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+# Write-Error becomes terminating under -Stop, which would short-circuit the
+# `Write-Error ...; exit <code>` pattern and break the documented exit-code
+# contract. Force it back to non-terminating for this script.
+$PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
+
 . "$PSScriptRoot/../_lib/Context.ps1"
 
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
 Assert-NonFlagArg      -Value $Release   -Name '-Release'
+Assert-NonFlagArg      -Value $ChartPath -Name '-ChartPath'
+Assert-NonFlagArg      -Value $ValuesFile -Name '-ValuesFile'
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
     Write-Error "helm not found in PATH. Install helm >= 3.13 before using this wrapper."

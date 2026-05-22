@@ -65,6 +65,8 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
+
 . "$PSScriptRoot/../_lib/Context.ps1"
 
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'

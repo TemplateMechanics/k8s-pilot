@@ -57,12 +57,16 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
+$PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
+
 . "$PSScriptRoot/../_lib/Context.ps1"
 
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
 Assert-SafePathSegment -Value $Context   -Name '-Context'
-Assert-NonFlagArg      -Value $Release   -Name '-Release'
+Assert-NonFlagArg      -Value $Release    -Name '-Release'
+Assert-NonFlagArg      -Value $ChartPath  -Name '-ChartPath'
+Assert-NonFlagArg      -Value $ValuesFile -Name '-ValuesFile'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
