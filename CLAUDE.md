@@ -27,7 +27,7 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 
 | # | Rule |
 |---|------|
-| R1 | Never call any mutating CLI invocation of `kubectl`, `kustomize`, `helm`, `argocd`, or `flux` directly. This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly **only for ad-hoc investigation**. When you are on the mutation path (Section 1 step 5), you must still go through the matching `Invoke-*Diff.ps1` wrapper — the wrapper emits the diff artifact that the mutation wrapper requires, which a bare `kubectl diff` / `helm diff` / `argocd app diff` / `flux diff` does not. |
+| R1 | Never call any mutating CLI invocation of `kubectl`, `helm`, `argocd`, or `flux` directly. (`kustomize` is a local render tool and never mutates cluster state — `kustomize build` is always allowed directly.) This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly **only for ad-hoc investigation**. When you are on the mutation path (Section 1 step 5), you must still go through the matching `Invoke-*Diff.ps1` wrapper — the wrapper emits the diff artifact that the mutation wrapper requires, which a bare `kubectl diff` / `helm diff` / `argocd app diff` / `flux diff` does not. |
 | R2 | Never mutate cluster state without first showing a diff and getting explicit user approval for that specific diff. The metadata-only exception class (Section 3.6) carves out a narrow set of mutations whose intent is captured by the wrapper parameters themselves; those still require explicit user approval and a recorded `-Reason`. |
 | R3 | Never trust the ambient kubeconfig context. Every mutation wrapper requires an explicit `-Context <name>` argument or a `-Cluster <name>` reference resolved through `config/clusters.yaml` (planned, PR 8). |
 | R4 | Never fan out a mutation across multiple clusters unless the user explicitly passes `-AcknowledgeMultiClusterMutation`, and never include `tier=prod` clusters in a fan-out selector unless they are named explicitly. |
@@ -54,9 +54,9 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
-| Build | `Invoke-KustomizeBuild.ps1` | `-Path`, `-Context` | Rendered manifest to `kustomize-build/<context>/<name>.yaml` |
-| Diff | `Invoke-KubectlDiff.ps1` | `-Path`, `-Context` | Diff artifact at `kustomize-build/<context>/<name>.diff` |
-| Apply | `Invoke-KubectlApply.ps1` | `-DiffFile`, `-Context` | Applies only the manifest that produced the diff |
+| Build | `Invoke-KustomizeBuild.ps1` | `-Path`, `-Context` | Rendered manifest to `kustomize-build/<context>/<name>.yaml` where `<name>` is the basename of the `-Path` argument (e.g. `-Path apps/web/overlays/staging` → `<name>=staging`). |
+| Diff | `Invoke-KubectlDiff.ps1` | `-Path`, `-Context` | Diff artifact at `kustomize-build/<context>/<name>.diff` (same `<name>` derivation as Build). |
+| Apply | `Invoke-KubectlApply.ps1` | `-DiffFile`, `-Context` | Applies only the manifest that produced the diff (the artifact records the source `-Path` and context for traceability). |
 | Rollout | `Invoke-RolloutStatus.ps1` | `-Kind`, `-Name`, `-Namespace`, `-Context` | Blocks until rollout completes or times out |
 
 ### 3.2 `helm`  (scripts/helm/, planned PR 5)
