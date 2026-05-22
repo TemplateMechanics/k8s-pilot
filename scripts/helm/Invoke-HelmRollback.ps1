@@ -38,7 +38,17 @@
     that have already obtained explicit operator approval.
 
 .OUTPUTS
-    helm's output. Exit propagates helm's code; 4 on validation failure.
+    Status messages on the Information stream; helm's stdout from rollback.
+    Exit codes:
+      0   - rollback succeeded
+      1   - helm error (helm get manifest failed, or helm rollback failed
+            with a non-zero code other than the ones below)
+      3   - helm binary not in PATH
+      5   - user declined the confirmation prompt
+      other - propagated from the underlying helm invocation
+    Parameter-validation failures (invalid -Revision range, empty -Reason,
+    unsafe -Context/-Namespace/-Release) terminate before the script body
+    runs and produce PowerShell's default error exit code (1).
 #>
 [CmdletBinding()]
 param(
@@ -80,7 +90,7 @@ try {
     $currentStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
     if ($currentExit -ne 0) {
         Write-Error "helm get manifest (current) failed (exit $currentExit): $currentStderr"
-        exit 1
+        exit $currentExit
     }
     if ($currentStderr) {
         Write-Warning "helm get manifest (current) produced stderr (not embedded in artifact):`n$currentStderr"
@@ -95,7 +105,7 @@ try {
     $targetStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
     if ($targetExit -ne 0) {
         Write-Error "helm get manifest --revision $Revision failed (does that revision exist? Check 'helm history $Release -n $Namespace --kube-context $Context'): $targetStderr"
-        exit 1
+        exit $targetExit
     }
     if ($targetStderr) {
         Write-Warning "helm get manifest --revision $Revision produced stderr (not embedded in artifact):`n$targetStderr"

@@ -64,7 +64,13 @@ if (-not (Test-Path $metaFile)) {
     exit 4
 }
 
-$meta = Get-Content $metaFile -Raw | ConvertFrom-Json
+try {
+    $meta = Get-Content $metaFile -Raw | ConvertFrom-Json -ErrorAction Stop
+}
+catch {
+    Write-Error "Failed to parse diff metadata sidecar '$metaFile' as JSON: $($_.Exception.Message). Regenerate via Invoke-HelmDiff.ps1."
+    exit 4
+}
 
 if ($meta.artifactKind -ne 'helm-diff') {
     Write-Error "Diff metadata artifactKind is '$($meta.artifactKind)', expected 'helm-diff'. Wrong wrapper?"

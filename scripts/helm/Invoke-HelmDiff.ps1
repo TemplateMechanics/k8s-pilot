@@ -91,10 +91,12 @@ $diffOutput = & helm diff upgrade $Release $ChartPath `
     --detailed-exitcode 2>&1
 $diffExit = $LASTEXITCODE
 
-if ($diffExit -eq 1) {
+if ($diffExit -ne 0 -and $diffExit -ne 2) {
+    # 0 = no changes, 2 = changes present, anything else = error.
+    # Propagate the actual exit code so callers can branch on it.
     $errText = @($diffOutput) -join "`n"
-    Write-Error "helm diff upgrade failed (exit 1) for release '$Release': $errText"
-    exit 1
+    Write-Error "helm diff upgrade failed (exit $diffExit) for release '$Release': $errText"
+    exit $diffExit
 }
 
 $diffOutput | Set-Content -Path $diffFile -Encoding utf8
