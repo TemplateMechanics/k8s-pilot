@@ -8,8 +8,11 @@
     operates on already-rendered manifests, regardless of producer (kubectl,
     kustomize, helm template, flux build, argocd manifest dump).
 
-    Each underlying tool is optional but at least one must succeed; missing tools
-    are skipped with a warning so this script remains useful in partial environments.
+    Each underlying tool is optional. Missing tools are skipped with a warning.
+    Exit codes:
+      0 - every non-skipped tool passed
+      1 - at least one non-skipped tool failed
+      2 - no validators ran (all tools missing or all -Skip* flags set)
 
 .PARAMETER Path
     A file or directory containing rendered Kubernetes manifests (YAML).
@@ -78,7 +81,9 @@ function Invoke-Kubeconform {
         Tool     = 'kubeconform'
         Skipped  = $false
         ExitCode = $exit
-        Output   = ($output -join "`n")
+        # @(...) forces array context so a single-string output is not joined
+        # character-by-character by `-join`.
+        Output   = (@($output) -join "`n")
     }
 }
 
@@ -93,7 +98,7 @@ function Invoke-KubeScore {
         Tool     = 'kube-score'
         Skipped  = $false
         ExitCode = $exit
-        Output   = ($output -join "`n")
+        Output   = (@($output) -join "`n")
     }
 }
 
@@ -108,7 +113,7 @@ function Invoke-Polaris {
         Tool     = 'polaris'
         Skipped  = $false
         ExitCode = $exit
-        Output   = ($output -join "`n")
+        Output   = (@($output) -join "`n")
     }
 }
 

@@ -88,3 +88,29 @@ function Get-PathBasename {
     param([Parameter(Mandatory)] [string] $Path)
     return (Split-Path -Path (Resolve-Path -Path $Path).Path -Leaf)
 }
+
+function Assert-SafePathSegment {
+    <#
+    .SYNOPSIS
+        Rejects strings that would escape a Join-Path output root.
+    .DESCRIPTION
+        Used to validate values like -Context that become directory names in
+        artifact paths (kustomize-build/<context>/<name>.yaml). Without this
+        check, a caller passing -Context "../etc" would land the artifact
+        outside the intended root.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $Value,
+        [Parameter(Mandatory)] [string] $Name
+    )
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        throw "$Name must not be empty."
+    }
+    if ($Value -match '[/\\]' -or $Value -eq '.' -or $Value -eq '..' -or $Value.Contains('..')) {
+        throw "$Name '$Value' is unsafe: must not contain path separators or '..' segments."
+    }
+    if ([System.IO.Path]::IsPathRooted($Value)) {
+        throw "$Name '$Value' is unsafe: must not be a rooted path."
+    }
+}

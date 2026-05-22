@@ -39,6 +39,8 @@ param(
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/../_lib/Context.ps1"
 
+Assert-SafePathSegment -Value $Context -Name '-Context'
+
 if (-not (Test-Path (Join-Path $Path 'kustomization.yaml')) -and -not (Test-Path (Join-Path $Path 'kustomization.yml'))) {
     throw "No kustomization.yaml (or .yml) found in '$Path'. Invoke-KustomizeBuild.ps1 requires a kustomize directory."
 }

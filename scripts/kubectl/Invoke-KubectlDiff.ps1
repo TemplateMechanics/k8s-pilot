@@ -45,6 +45,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 . "$PSScriptRoot/../_lib/Context.ps1"
+Assert-SafePathSegment -Value $Context -Name '-Context'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
 
 # Render first so we can both diff and (later) apply the exact same bytes.
@@ -69,7 +70,10 @@ if ($diffExit -gt 1) {
     # Surface kubectl's stderr/stdout for diagnosis, then propagate the
     # original kubectl exit code so callers can distinguish error (>1) from
     # diff-present (1). A `throw` here would collapse everything into exit 1.
-    Write-Error "kubectl diff failed (exit $diffExit) for '$renderedPath': $($diffOutput -join "`n")"
+    # Note: wrap in @(...) before -join to defend against the PowerShell trap
+    # where a scalar string gets joined character-by-character.
+    $diffText = @($diffOutput) -join "`n"
+    Write-Error "kubectl diff failed (exit $diffExit) for '$renderedPath': $diffText"
     exit $diffExit
 }
 
