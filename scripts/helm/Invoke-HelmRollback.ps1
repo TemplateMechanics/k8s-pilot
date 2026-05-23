@@ -43,14 +43,17 @@
     Status messages on the Information stream; helm's stdout from rollback.
     Exit codes:
       0   - rollback succeeded
-      1   - helm error (helm get manifest failed, or helm rollback failed
-            with a non-zero code other than the ones below)
       3   - helm binary not in PATH
       5   - user declined the confirmation prompt
-      other - propagated from the underlying helm invocation
+      other - propagated directly from the underlying helm invocation
+              (`helm get manifest` for the current revision, `helm get
+              manifest --revision` for the target, or `helm rollback`).
+              We do NOT collapse helm failures to a fixed code so callers
+              can branch on the original helm exit.
     Parameter-validation failures (invalid -Revision range, empty -Reason,
-    unsafe -Context/-Namespace/-Release) terminate before the script body
-    runs and produce PowerShell's default error exit code (1).
+    unsafe -Namespace/-Release, leading-dash on any of -Release/-Namespace/
+    -Context) terminate before the script body runs and produce PowerShell's
+    default error exit code (1).
 #>
 [CmdletBinding()]
 param(

@@ -81,26 +81,29 @@ if (-not (Test-Path $outDir)) {
 }
 $outFile = Join-Path $outDir 'templated.yaml'
 
-# Capture stderr separately so warnings cannot pollute the rendered manifest.
+# Stream stdout directly to the output file and stderr to a temp file so:
+#  1. Warnings cannot pollute the rendered manifest.
+#  2. Large charts don't accumulate the entire rendered YAML in memory.
 $errFile = [System.IO.Path]::GetTempFileName()
 try {
-    $rendered = & helm template $Release $ChartPath `
+    & helm template $Release $ChartPath `
         --namespace $Namespace `
         --values $ValuesFile `
-        --include-crds 2>$errFile
+        --include-crds `
+        1>$outFile 2>$errFile
     $helmExit = $LASTEXITCODE
 
     $stderrContent = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
 
     if ($helmExit -ne 0) {
+        # Clean up the potentially incomplete output file on failure.
+        Remove-Item -Path $outFile -Force -ErrorAction SilentlyContinue
         Write-Error "helm template failed for '$ChartPath' (exit $helmExit): $stderrContent"
         exit $helmExit
     }
     if ($stderrContent) {
         Write-Warning "helm produced stderr output (not included in rendered file):`n$stderrContent"
     }
-
-    $rendered | Set-Content -Path $outFile -Encoding utf8
 }
 finally {
     Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue

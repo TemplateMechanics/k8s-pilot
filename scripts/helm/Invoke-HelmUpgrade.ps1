@@ -119,13 +119,19 @@ if (-not (Test-Path $meta.valuesFile)) {
     exit 4
 }
 
-# Cross-check that meta.release matches the release implied by the diff
-# artifact path layout (helm-output/<namespace>/<release>/<slug>.diff). A
-# hand-edited sidecar with mismatched release would otherwise let us upgrade
-# a different release than the artifact the operator reviewed.
-$artifactReleaseDir = Split-Path -Path $DiffFile -Parent | Split-Path -Leaf
+# Cross-check that meta.release AND meta.namespace match the directory
+# layout implied by the diff artifact path (helm-output/<namespace>/<release>/
+# <slug>.diff). A hand-edited or moved sidecar would otherwise let us
+# upgrade a different release / namespace than the artifact the operator
+# actually reviewed.
+$artifactReleaseDir   = Split-Path -Path $DiffFile -Parent | Split-Path -Leaf
+$artifactNamespaceDir = Split-Path -Path $DiffFile -Parent | Split-Path -Parent | Split-Path -Leaf
 if ($meta.release -ne $artifactReleaseDir) {
     Write-Error "Diff metadata release '$($meta.release)' does not match the release directory '$artifactReleaseDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
+    exit 4
+}
+if ($meta.namespace -ne $artifactNamespaceDir) {
+    Write-Error "Diff metadata namespace '$($meta.namespace)' does not match the namespace directory '$artifactNamespaceDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
     exit 4
 }
 
@@ -142,23 +148,24 @@ foreach ($field in @('release', 'chartPath', 'valuesFile')) {
 }
 
 # Verify the values file hasn't drifted since the diff was produced.
-# (schemaVersion 1 sidecars predate this field; treat as missing-hash skip
-#  with a warning so legacy artifacts don't silently bypass the check.)
-if ($meta.PSObject.Properties.Name -contains 'valuesFileSha256' -and $meta.valuesFileSha256) {
-    try {
-        $currentValuesSha = (Get-FileHash -Algorithm SHA256 -Path $meta.valuesFile -ErrorAction Stop).Hash
-    }
-    catch {
-        Write-Error "Failed to compute SHA-256 for values file '$($meta.valuesFile)': $($_.Exception.Message)"
-        exit 4
-    }
-    if ($currentValuesSha -ne $meta.valuesFileSha256) {
-        Write-Error "Values file '$($meta.valuesFile)' has changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
-        exit 4
-    }
+# Invoke-HelmDiff always emits schemaVersion=2 with valuesFileSha256, so a
+# missing/empty hash is treated as a metadata-validation failure (exit 4)
+# rather than a soft warning — otherwise the safety check could be bypassed
+# by hand-deleting the field from a sidecar.
+if ($meta.PSObject.Properties.Name -notcontains 'valuesFileSha256' -or -not $meta.valuesFileSha256 -or $meta.valuesFileSha256 -isnot [string]) {
+    Write-Error "Diff metadata is missing or has an invalid valuesFileSha256 field. Regenerate via Invoke-HelmDiff.ps1 (current schemaVersion is 2 and always includes this hash)."
+    exit 4
 }
-else {
-    Write-Warning "Diff metadata predates valuesFileSha256 (schemaVersion < 2); skipping values-drift check. Regenerate the diff to enable it."
+try {
+    $currentValuesSha = (Get-FileHash -Algorithm SHA256 -Path $meta.valuesFile -ErrorAction Stop).Hash
+}
+catch {
+    Write-Error "Failed to compute SHA-256 for values file '$($meta.valuesFile)': $($_.Exception.Message)"
+    exit 4
+}
+if ($currentValuesSha -ne $meta.valuesFileSha256) {
+    Write-Error "Values file '$($meta.valuesFile)' has changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
+    exit 4
 }
 
 Write-Information "Upgrading helm release '$($meta.release)' in namespace '$Namespace' on context '$Context'..." -InformationAction Continue

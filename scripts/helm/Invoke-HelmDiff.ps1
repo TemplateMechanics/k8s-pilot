@@ -79,10 +79,18 @@ if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
     exit 3
 }
 
-# Verify the helm-diff plugin is installed.
-$plugins = & helm plugin list 2>$null
-if ($LASTEXITCODE -ne 0 -or ($plugins | Out-String) -notmatch '\bdiff\b') {
-    Write-Error "helm-diff plugin not installed. Run: helm plugin install https://github.com/databus23/helm-diff"
+# Verify the helm-diff plugin is installed. Parse the NAME column (first
+# whitespace-separated token of each non-header line) so we don't match
+# unrelated plugins whose DESCRIPTION mentions the word "diff".
+$pluginsRaw = & helm plugin list 2>$null
+$helmPluginExit = $LASTEXITCODE
+$pluginNames = if ($helmPluginExit -eq 0 -and $pluginsRaw) {
+    @($pluginsRaw) | Select-Object -Skip 1 | ForEach-Object {
+        ($_ -split '\s+', 2)[0]
+    } | Where-Object { $_ }
+} else { @() }
+if ($helmPluginExit -ne 0 -or 'diff' -notin $pluginNames) {
+    Write-Error "helm-diff plugin not installed (found plugins: $($pluginNames -join ', ')). Run: helm plugin install https://github.com/databus23/helm-diff"
     exit 3
 }
 
