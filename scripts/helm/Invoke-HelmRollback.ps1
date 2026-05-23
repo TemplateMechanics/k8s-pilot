@@ -96,16 +96,28 @@ if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
 
 # Render cross-revision delta: helm get manifest <release> --revision <target>
 # vs current. This is the "rollback diff" per §3.6.
-# Capture stderr to a temp file so any helm warnings (e.g. kubeconfig
-# permission notices) are not embedded into the YAML artifacts.
+# Stream stdout directly to the audit YAML files via 1> redirection so
+# large releases do not accumulate manifest bytes in memory. Stderr still
+# goes to a temp file so any helm warnings are not embedded in artifacts.
+$contextSlug = ConvertTo-SafeFilename -Value $Context
+$auditDir = Join-Path (Join-Path (Join-Path '.helm' $contextSlug) $Namespace) $Release
+if (-not (Test-Path $auditDir)) {
+    New-Item -ItemType Directory -Path $auditDir -Force | Out-Null
+}
+$timestamp = Get-Date -AsUTC -Format 'yyyyMMdd-HHmmssfff'
+$currentFile = Join-Path $auditDir "$timestamp-current.yaml"
+$targetFile  = Join-Path $auditDir "$timestamp-revision-$Revision.yaml"
+
 $errFile = [System.IO.Path]::GetTempFileName()
 try {
-    $currentManifest = & helm get manifest $Release `
+    & helm get manifest $Release `
         --kube-context $Context `
-        --namespace $Namespace 2>$errFile
+        --namespace $Namespace `
+        1>$currentFile 2>$errFile
     $currentExit = $LASTEXITCODE
     $currentStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
     if ($currentExit -ne 0) {
+        Remove-Item -Path $currentFile -Force -ErrorAction SilentlyContinue
         Write-Error "helm get manifest (current) failed (exit $currentExit): $currentStderr"
         exit $currentExit
     }
@@ -114,13 +126,15 @@ try {
     }
 
     Clear-Content -Path $errFile -ErrorAction SilentlyContinue
-    $targetManifest = & helm get manifest $Release `
+    & helm get manifest $Release `
         --kube-context $Context `
         --namespace $Namespace `
-        --revision $Revision 2>$errFile
+        --revision $Revision `
+        1>$targetFile 2>$errFile
     $targetExit = $LASTEXITCODE
     $targetStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
     if ($targetExit -ne 0) {
+        Remove-Item -Path $targetFile -Force -ErrorAction SilentlyContinue
         Write-Error "helm get manifest --revision $Revision failed (does that revision exist? Check 'helm history $Release -n $Namespace --kube-context $Context'): $targetStderr"
         exit $targetExit
     }
@@ -132,20 +146,9 @@ finally {
     Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue
 }
 
-# Filesystem-safe slug for the context portion of the audit path; the true
-# context name is recorded inside the JSON audit entry below.
-$contextSlug = ConvertTo-SafeFilename -Value $Context
-$auditDir = Join-Path (Join-Path (Join-Path '.helm' $contextSlug) $Namespace) $Release
-if (-not (Test-Path $auditDir)) {
-    New-Item -ItemType Directory -Path $auditDir -Force | Out-Null
-}
-# Millisecond-precision timestamp to avoid collisions when two rollbacks for
-# the same release fire within the same second.
-$timestamp = Get-Date -AsUTC -Format 'yyyyMMdd-HHmmssfff'
-$currentFile = Join-Path $auditDir "$timestamp-current.yaml"
-$targetFile  = Join-Path $auditDir "$timestamp-revision-$Revision.yaml"
-$currentManifest | Set-Content -Path $currentFile -Encoding utf8
-$targetManifest  | Set-Content -Path $targetFile  -Encoding utf8
+# (Audit dir + filenames are now set BEFORE the helm get manifest calls
+# above so we can stream directly to them; this block remains as a no-op
+# marker so the surrounding Write-Information lines still have context.)
 
 Write-Information "Cross-revision delta for release '$Release' (current -> revision $Revision):" -InformationAction Continue
 Write-Information "  current  : $currentFile" -InformationAction Continue
