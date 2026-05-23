@@ -159,8 +159,8 @@ if (-not (Test-Path -LiteralPath $meta.valuesFile)) {
 # <slug>.diff). A hand-edited or moved sidecar would otherwise let us
 # upgrade a different release / namespace than the artifact the operator
 # actually reviewed.
-$artifactReleaseDir   = Split-Path -Path $DiffFile -Parent | Split-Path -Leaf
-$artifactNamespaceDir = Split-Path -Path $DiffFile -Parent | Split-Path -Parent | Split-Path -Leaf
+$artifactReleaseDir   = Split-Path -LiteralPath $DiffFile -Parent | Split-Path -Leaf
+$artifactNamespaceDir = Split-Path -LiteralPath $DiffFile -Parent | Split-Path -Parent | Split-Path -Leaf
 if ($meta.release -cne $artifactReleaseDir) {
     Write-Error "Diff metadata release '$($meta.release)' does not match the release directory '$artifactReleaseDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
     exit 4
