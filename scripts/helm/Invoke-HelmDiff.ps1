@@ -114,20 +114,34 @@ $metaFile = "$diffFile.meta.json"
 #   0 - no changes
 #   2 - changes present
 #   1 - error
-$diffOutput = & helm diff upgrade $Release $ChartPath `
-    --kube-context $Context `
-    --namespace $Namespace `
-    --values $ValuesFile `
-    --allow-unreleased `
-    --detailed-exitcode 2>&1
-$diffExit = $LASTEXITCODE
+# Capture stderr separately so helm diff warnings (kubeconfig perms,
+# deprecated flag notices, etc.) cannot pollute the .diff artifact the
+# operator reviews. Stderr is surfaced via Write-Warning on success and
+# included in the failure message alongside stdout on error.
+$errFile = [System.IO.Path]::GetTempFileName()
+try {
+    $diffOutput = & helm diff upgrade $Release $ChartPath `
+        --kube-context $Context `
+        --namespace $Namespace `
+        --values $ValuesFile `
+        --allow-unreleased `
+        --detailed-exitcode 2>$errFile
+    $diffExit = $LASTEXITCODE
+    $diffStderr = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
 
-if ($diffExit -ne 0 -and $diffExit -ne 2) {
-    # 0 = no changes, 2 = changes present, anything else = error.
-    # Propagate the actual exit code so callers can branch on it.
-    $errText = @($diffOutput) -join "`n"
-    Write-Error "helm diff upgrade failed (exit $diffExit) for release '$Release': $errText"
-    exit $diffExit
+    if ($diffExit -ne 0 -and $diffExit -ne 2) {
+        # 0 = no changes, 2 = changes present, anything else = error.
+        # Propagate the actual exit code; include both streams for diagnosis.
+        $combined = @(@($diffOutput) -join "`n"; $diffStderr) -join "`n--- stderr ---`n"
+        Write-Error "helm diff upgrade failed (exit $diffExit) for release '$Release': $combined"
+        exit $diffExit
+    }
+    if ($diffStderr) {
+        Write-Warning "helm diff produced stderr output (not included in diff artifact):`n$diffStderr"
+    }
+}
+finally {
+    Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
 }
 
 # Write the diff artifact AND metadata inside a single try/catch so a
