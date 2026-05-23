@@ -51,6 +51,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `scripts/multi-cluster/Invoke-HelmStatusAcross.ps1`: matching parallel fan-out for `helm status -n <ns> --kube-context <ctx>`.
 - `agents/multi-cluster.agent.md`: persona codifying the operational sequence (show matched clusters first; surface per-cluster failures by name; refuse multi-cluster mutations).
 - Per CLAUDE.md §3.5, there is intentionally NO `Invoke-*Across.ps1` mutation wrapper. Cross-cluster mutations must iterate one cluster at a time via the per-tool wrappers under `scripts/<tool>/`.
+- **Required dependency**: `mikefarah/yq v4+` (https://github.com/mikefarah/yq) must be on PATH for any multi-cluster wrapper. `Assert-YqAvailable` rejects older yq builds and the Python `kislyuk/yq` reimplementation.
 
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.

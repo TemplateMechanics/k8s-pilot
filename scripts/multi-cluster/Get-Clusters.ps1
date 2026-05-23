@@ -48,5 +48,6 @@ if ($clusters.Count -eq 0) {
 }
 
 # Emit the structured objects to the pipeline so callers can pipe into
-# ForEach-Object / other wrappers. Format-Table by default for interactive use.
+# ForEach-Object / other wrappers. Interactive consumers can pipe to
+# Format-Table themselves if they want a tabular view.
 $clusters

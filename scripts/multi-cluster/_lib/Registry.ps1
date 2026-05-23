@@ -17,6 +17,13 @@ function Assert-YqAvailable {
     if (-not (Get-Command yq -ErrorAction SilentlyContinue)) {
         throw "yq not found in PATH. Install yq >= 4.0 (https://github.com/mikefarah/yq) for YAML registry parsing."
     }
+    # mikefarah/yq v4 prints version as 'yq (https://...) version v4.x.y'.
+    # kislyuk/yq (Python) prints 'jq version ...'. We need v4 specifically
+    # because the eval-with-expression-and-file syntax differs.
+    $verOut = (& yq --version 2>&1 | Out-String).Trim()
+    if ($verOut -notmatch '(?i)\bv?4(?:\.\d+){1,2}\b' -or $verOut -match '(?i)jq version') {
+        throw "Unsupported yq version (got '$verOut'). This wrapper requires mikefarah/yq v4 (https://github.com/mikefarah/yq); install via your package manager or 'go install github.com/mikefarah/yq/v4@latest'."
+    }
 }
 
 function Read-ClustersRegistry {
@@ -74,6 +81,14 @@ function Read-ClustersRegistry {
     }
 
     $allowedTiers = @('dev', 'staging', 'prod')
+    # Detect duplicate cluster names. A duplicate name would make
+    # name=<dup> match multiple rows (potentially including a prod
+    # row), bypassing the explicit-name opt-in's safety intent.
+    $names = $doc.clusters | ForEach-Object { [string]$_.name }
+    $dups = $names | Group-Object | Where-Object { $_.Count -gt 1 } | Select-Object -ExpandProperty Name
+    if ($dups) {
+        throw "Registry contains duplicate cluster name(s): $($dups -join ', '). Names must be unique."
+    }
     $result = foreach ($c in $doc.clusters) {
         # Validate required fields are present + non-empty so silent
         # downstream failures don't happen.

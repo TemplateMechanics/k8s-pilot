@@ -37,8 +37,11 @@
     Array of [pscustomobject]@{ cluster; context; tier; output; exitCode; stderr }.
     Exit codes:
       0  - every per-cluster kubectl returned 0
-      1  - at least one per-cluster kubectl failed (per-cluster code in
-           output objects)
+      1  - either at least one per-cluster kubectl failed (per-cluster
+           code in output objects) OR a preflight throw (missing yq,
+           invalid registry YAML, invalid selector, registry-supplied
+           context/kubeconfig that starts with '-'). Throws hit
+           PowerShell's default exit code 1 before any cluster query.
       2  - no clusters matched the selector
       3  - kubectl binary not in PATH
 #>

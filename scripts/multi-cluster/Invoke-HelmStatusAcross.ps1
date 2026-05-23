@@ -29,7 +29,10 @@
     Array of [pscustomobject]@{ cluster; context; tier; release; namespace; output; exitCode; stderr }.
     Exit codes:
       0  - every per-cluster helm returned 0
-      1  - at least one failed
+      1  - either at least one per-cluster helm failed (per-cluster code
+           in output objects) OR a preflight throw (missing yq, invalid
+           registry YAML, invalid selector, unsafe registry value).
+           Throws hit PowerShell's default exit code 1.
       2  - no clusters matched
       3  - helm binary not in PATH
 #>
