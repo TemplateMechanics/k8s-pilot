@@ -5,15 +5,20 @@
 
 .DESCRIPTION
     Wraps `argocd app diff <app> --revision <rev> --server <server>`. Emits
-    a diff artifact at `.argocd/<serverSlug>/<appSlug>/<revision>.diff`
-    with a sidecar metadata JSON that Invoke-ArgocdAppSync.ps1 consumes
-    to verify the pairing.
+    a diff artifact at `.argocd/<serverSlug>/<appSlug>/<revisionSlug>.diff`
+    where each slug is `ConvertTo-SafeFilename` of the corresponding value
+    (handles `:` in server hostnames, `/` in revision tags like
+    `release/v1.2.3`, etc.). The TRUE server / app / revision strings are
+    preserved inside the `.diff.meta.json` sidecar so Invoke-ArgocdAppSync.ps1
+    can verify the pairing on actual identifiers.
 
 .PARAMETER App
     Argo CD Application name (the Application CR's `metadata.name`).
 
 .PARAMETER Revision
-    Target git revision (commit SHA or immutable tag). Never `HEAD`.
+    Target git revision (commit SHA or immutable tag). The literal value
+    `HEAD` is rejected (case-insensitive) because syncing against a moving
+    target defeats the audit trail — see .github/copilot-instructions.md.
 
 .PARAMETER Server
     Argo CD API server host. Sidecar records the server so Sync refuses
@@ -49,6 +54,14 @@ Assert-SafePathSegment -Value $App -Name '-App'
 Assert-NonFlagArg      -Value $App      -Name '-App'
 Assert-NonFlagArg      -Value $Revision -Name '-Revision'
 Assert-NonFlagArg      -Value $Server   -Name '-Server'
+
+# Reject 'HEAD' (case-insensitive) per .github/copilot-instructions.md:
+# Argo CD revisions must pin to an immutable SHA or tag, never a branch
+# pointer. Catches HEAD, head, Head, etc.
+if ($Revision.Trim().ToLowerInvariant() -eq 'head') {
+    Write-Error "-Revision 'HEAD' is rejected. Pin to an immutable commit SHA or tag (Argo CD audit trail requires immutable revisions)."
+    exit 2
+}
 
 if (-not (Get-Command argocd -ErrorAction SilentlyContinue)) {
     Write-Error "argocd not found in PATH."

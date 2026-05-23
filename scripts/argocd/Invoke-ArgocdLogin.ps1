@@ -4,9 +4,10 @@
     (CLAUDE.md §3.3 Login).
 
 .DESCRIPTION
-    Thin wrapper around `argocd login` that records the named server so
-    subsequent diff/sync/wait wrappers can verify they are talking to the
-    expected instance.
+    Thin wrapper around `argocd login`. The subsequent diff/sync/wait
+    wrappers each take their own mandatory `-Server` argument and pass it
+    to every argocd invocation, so the safety guarantee is per-call rather
+    than via a persisted local "current server" record.
 
     The argocd CLI session is stored in the user's standard config location
     (`%USERPROFILE%\.config\argocd\config` on Windows, `~/.config/argocd/config`
@@ -58,6 +59,7 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 Assert-NonFlagArg -Value $Server -Name '-Server'
 if ($Username) { Assert-NonFlagArg -Value $Username -Name '-Username' }
+if ($Password) { Assert-NonFlagArg -Value $Password -Name '-Password' }
 
 if (-not (Get-Command argocd -ErrorAction SilentlyContinue)) {
     Write-Error "argocd not found in PATH. Install argocd >= 2.10."

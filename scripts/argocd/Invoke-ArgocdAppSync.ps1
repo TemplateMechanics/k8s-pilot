@@ -12,9 +12,13 @@
       4. metadata.server == -Server (case-sensitive).
       5. metadata.app == -App (case-sensitive).
       6. metadata.revision == -Revision (case-sensitive).
-      7. metadata.app == basename of DiffFile's parent directory.
-      8. metadata.server == basename of DiffFile's grandparent directory
-         (slug match, since the path uses ConvertTo-SafeFilename).
+      7. ConvertTo-SafeFilename(metadata.app) == basename of DiffFile's
+         parent directory (slug-vs-slug, since the path uses ConvertTo-SafeFilename).
+      8. ConvertTo-SafeFilename(metadata.server) == basename of DiffFile's
+         grandparent directory (also slug-vs-slug).
+     8b. ConvertTo-SafeFilename(metadata.revision) + ".diff" == DiffFile's
+         leaf filename (closes the gap where a sidecar's revision could be
+         hand-edited without renaming the artifact).
       9. diffExitCode == 1 (argocd app diff's "changes present" native exit
          code; the AppDiff WRAPPER translates this to wrapper exit 2 for
          cross-family consistency, but the sidecar always records argocd's
@@ -51,6 +55,13 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 Assert-NonFlagArg -Value $App      -Name '-App'
 Assert-NonFlagArg -Value $Revision -Name '-Revision'
 Assert-NonFlagArg -Value $Server   -Name '-Server'
+
+# Reject HEAD here too (mirrors the diff wrapper) so a sync attempted with
+# -Revision HEAD short-circuits before any cluster mutation.
+if ($Revision.Trim().ToLowerInvariant() -eq 'head') {
+    Write-Error "-Revision 'HEAD' is rejected. Pin to an immutable commit SHA or tag."
+    exit 2
+}
 
 if (-not (Get-Command argocd -ErrorAction SilentlyContinue)) {
     Write-Error "argocd not found in PATH."
@@ -130,6 +141,15 @@ if ($expectedAppSlug -cne $appSlugDir) {
 }
 if ($expectedServerSlug -cne $serverSlugDir) {
     Write-Error "Diff metadata server slug '$expectedServerSlug' does not match server directory '$serverSlugDir' in artifact path. Sidecar may be hand-edited or moved."
+    exit 4
+}
+# Also verify the diff filename leaf matches the slugified revision.
+# Catches the case where a sidecar's metadata.revision was edited but the
+# artifact filename was not renamed to match.
+$expectedRevisionFile = (ConvertTo-SafeFilename -Value $meta.revision) + '.diff'
+$actualLeaf = Split-Path -LiteralPath $DiffFile -Leaf
+if ($expectedRevisionFile -cne $actualLeaf) {
+    Write-Error "Diff metadata revision slug '$expectedRevisionFile' does not match artifact filename '$actualLeaf'. Sidecar may be hand-edited or moved."
     exit 4
 }
 
