@@ -211,10 +211,17 @@ function ConvertTo-SafeFilename {
     # hint sized for a few thousand distinct contexts per repo. If callers
     # ever expect millions of distinct contexts in one tree, widen the
     # suffix.
-    # -cne (case-sensitive) so case-only changes like 'Prod' vs 'prod' also
-    # get the hash suffix; without this, both would slug to identical
-    # 'Prod'/'prod' and collide on case-insensitive filesystems.
-    $normalized = ($slug -cne $Value) -or ($slug.Length -gt 80)
+    # Force the hash suffix in three cases:
+    #  1. Normalization changed the value (e.g. ':' -> '_').
+    #  2. The input contains ANY uppercase character — even if the slug
+    #     looks identical to the input. Otherwise on case-insensitive
+    #     filesystems 'Prod' (slug='Prod', no hash) and 'prod' (slug='prod',
+    #     no hash) collapse to the same path. Adding a hash to 'Prod' (but
+    #     not 'prod') makes them distinct.
+    #  3. The slug exceeds the length cap and needs truncation.
+    $caseFolded = $Value.ToLowerInvariant()
+    $hasMixedCase = $Value -cne $caseFolded
+    $normalized = ($slug -cne $Value) -or $hasMixedCase -or ($slug.Length -gt 80)
     if ($normalized) {
         $hash = [System.Security.Cryptography.SHA1]::HashData([System.Text.Encoding]::UTF8.GetBytes($Value))
         $shortHash = ([System.BitConverter]::ToString($hash) -replace '-', '').Substring(0, 8).ToLowerInvariant()
