@@ -37,6 +37,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `scripts/argocd/Invoke-ArgocdAppSync.ps1`: apply paired with a reviewed diff. Verifies sidecar exists / valid JSON / artifactKind / schemaVersion / scalar-string fields / `Assert-NonFlagArg` on server/app/revision / case-sensitive `meta.server`/`meta.app`/`meta.revision` match / path layout matches `ConvertTo-SafeFilename` slugs / `diffExitCode==1`. Optional `-Prune` switch. All PR 5 idioms applied: `Write-Error`+exit, `-LiteralPath` everywhere, `$PSDefaultParameterValues['Write-Error:ErrorAction']='Continue'`.
 - `scripts/argocd/Invoke-ArgocdAppWait.ps1`: read-only `argocd app wait --health --sync`. `TimeoutSeconds` default 300.
 
+- `scripts/flux/Invoke-FluxBuild.ps1`: streams `flux build kustomization` stdout directly to `.flux/<kustomization>.yaml`; stderr captured separately so warnings cannot pollute the rendered manifest. Exit 3 if flux missing.
+- `scripts/flux/Invoke-FluxDiff.ps1`: wraps `flux diff kustomization`; emits `.flux/<kustomization>/<contextSlug>.diff` + `.diff.meta.json` sidecar (schemaVersion=1; context/kustomization/path/pathContentSha256/diffExitCode/generatedAt). Captures stderr separately; distinguishes "diff present" from "error" by inspecting stderr for error markers. Translates to wrapper exit 0 (clean) / 2 (diff) / 1 (wrapper metadata failure) for cross-family consistency.
+- `scripts/flux/Invoke-FluxReconcile.ps1`: apply paired with a reviewed diff. Verifies sidecar exists / valid JSON / artifactKind / schemaVersion / scalar-string types / Assert-NonFlagArg on consumed fields / case-sensitive context+kustomization matches / path-layout cross-check / pathContentSha256 drift detection. Calls `flux reconcile kustomization --with-source --context`.
+- `scripts/flux/Invoke-FluxSuspend.ps1`: metadata-only mutation per §3.6. Requires `-Kind` (validated against the flux CR set), `-Name`, `-Context`, `-Reason` (>=5 chars). Writes started+completed JSON entries to `.flux/audit/<contextSlug>/suspend.log` with outcome and exitCode.
+- `scripts/flux/Invoke-FluxResume.ps1`: matching resume wrapper with the same validation contract and audit log structure at `.flux/audit/<contextSlug>/resume.log`. Documents that the first post-resume reconcile may apply accumulated drift.
+
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
 - `agents/multi-cluster.agent.md` will land with the multi-cluster registry in PR 8.
