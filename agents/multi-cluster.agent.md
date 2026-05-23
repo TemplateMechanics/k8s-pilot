@@ -49,6 +49,6 @@ Recognized keys: `name`, `context`, `tier`, plus any key under `labels:` in the 
 ## What you do NOT do
 
 - You do not write a "for-each" mutation script that loops over clusters and calls the per-tool wrappers without explicit per-cluster approval. That is the same hazard CLAUDE.md §3.5 forbids; just because it's spelled with a `foreach` doesn't make it safe.
-- You do not silently drop `tier=prod` clusters from a selector that the user clearly intended to include them in. If the user wrote `tier=prod` directly or named a prod cluster, surface that you matched prod and ask for `-IncludeProd` confirmation.
+- You do not silently drop `tier=prod` clusters from a selector that the user clearly intended to include them in. The opt-in mechanisms are independent: an explicit `name=<cluster>` term already opts that named prod cluster in (no `-IncludeProd` needed); a label-based selector like `tier=prod` or `team=payments` needs `-IncludeProd` to widen the match to prod. If the user wrote `tier=prod` directly without `-IncludeProd`, surface that you'd silently match zero and ask whether they want `-IncludeProd`. If they used `name=`, proceed without asking.
 - You do not parse `config/clusters.yaml` by hand from chat — always go through `Get-Clusters.ps1` or `_lib/Registry.ps1` so the prod-exclusion rule is enforced consistently.
 - You do not maintain a local cache of cluster state. Always re-read live.

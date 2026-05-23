@@ -26,7 +26,7 @@
     See Get-Clusters.ps1.
 
 .OUTPUTS
-    Array of [pscustomobject]@{ cluster; release; namespace; output; exitCode; stderr }.
+    Array of [pscustomobject]@{ cluster; context; tier; release; namespace; output; exitCode; stderr }.
     Exit codes:
       0  - every per-cluster helm returned 0
       1  - at least one failed
@@ -76,6 +76,13 @@ foreach ($c in $clusters) {
     }
 }
 
+# Surface the matched cluster list (especially prod-tier rows) before
+# fan-out per CLAUDE.md R4 / agents/multi-cluster.agent.md.
+Write-Information "Resolved $($clusters.Count) cluster(s) for selector '$Selector':" -InformationAction Continue
+foreach ($c in $clusters) {
+    $prodMarker = if ($c.tier -ceq 'prod') { ' [PROD]' } else { '' }
+    Write-Information "  - $($c.name) (context=$($c.context), tier=$($c.tier))$prodMarker" -InformationAction Continue
+}
 Write-Information "Fanning helm status '$Release' (-n $Namespace) out to $($clusters.Count) cluster(s) ($MaxParallel concurrent)..." -InformationAction Continue
 
 $results = $clusters | ForEach-Object -ThrottleLimit $MaxParallel -Parallel {

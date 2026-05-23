@@ -34,7 +34,7 @@
     See Get-Clusters.ps1.
 
 .OUTPUTS
-    Array of [pscustomobject]@{ cluster; output; exitCode; stderr }.
+    Array of [pscustomobject]@{ cluster; context; tier; output; exitCode; stderr }.
     Exit codes:
       0  - every per-cluster kubectl returned 0
       1  - at least one per-cluster kubectl failed (per-cluster code in
@@ -87,6 +87,14 @@ foreach ($c in $clusters) {
     }
 }
 
+# Surface the resolved cluster list (especially prod-tier rows) BEFORE
+# fan-out so the operator can abort if the blast radius isn't what they
+# intended. Required by CLAUDE.md R4 when -IncludeProd is used.
+Write-Information "Resolved $($clusters.Count) cluster(s) for selector '$Selector':" -InformationAction Continue
+foreach ($c in $clusters) {
+    $prodMarker = if ($c.tier -ceq 'prod') { ' [PROD]' } else { '' }
+    Write-Information "  - $($c.name) (context=$($c.context), tier=$($c.tier))$prodMarker" -InformationAction Continue
+}
 Write-Information "Fanning kubectl get $Resource out to $($clusters.Count) cluster(s) ($MaxParallel concurrent)..." -InformationAction Continue
 
 $results = $clusters | ForEach-Object -ThrottleLimit $MaxParallel -Parallel {
