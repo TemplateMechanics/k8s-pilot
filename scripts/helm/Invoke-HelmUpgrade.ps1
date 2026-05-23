@@ -124,11 +124,15 @@ if ($meta.PSObject.Properties.Name -notcontains 'schemaVersion' -or $meta.schema
 # so -isnot [int] would false-reject a perfectly valid sidecar.
 # Accept any scalar numeric value, cast to int, and require exactly 2.
 $diffExitVal = $meta.diffExitCode
-$isNumericScalar = $diffExitVal -is [int] -or $diffExitVal -is [long] -or $diffExitVal -is [double] -or $diffExitVal -is [decimal]
+# Accept only true integer types ([int] = Int32, [long] = Int64).
+# Floats/decimals are rejected outright: [int]2.9 silently rounds to 2,
+# so a hand-edited sidecar with diffExitCode=2.9 would otherwise pass
+# the safety gate.
+$isIntegerScalar = $diffExitVal -is [int] -or $diffExitVal -is [long]
 if ($meta.PSObject.Properties.Name -notcontains 'diffExitCode' -or
-    -not $isNumericScalar -or
-    [int]$diffExitVal -ne 2) {
-    Write-Error "Diff metadata diffExitCode must be 2 (helm-diff --detailed-exitcode 'changes present'), got '$diffExitVal'. Refusing to upgrade against an empty / missing / corrupted diff. Regenerate via Invoke-HelmDiff.ps1 after editing the change you want to apply."
+    -not $isIntegerScalar -or
+    $diffExitVal -ne 2) {
+    Write-Error "Diff metadata diffExitCode must be the integer 2 (helm-diff --detailed-exitcode 'changes present'), got '$diffExitVal' (type $(if ($null -eq $diffExitVal) { '<null>' } else { $diffExitVal.GetType().Name })). Refusing to upgrade against an empty / missing / corrupted diff. Regenerate via Invoke-HelmDiff.ps1 after editing the change you want to apply."
     exit 4
 }
 if ($meta.context -ne $Context) {
