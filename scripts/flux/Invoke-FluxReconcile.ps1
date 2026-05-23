@@ -142,14 +142,13 @@ if (-not $isIntegerScalar) {
     Write-Error "Diff metadata diffExitCode must be an integer; got '$diffExitVal' (type $(if ($null -eq $diffExitVal) { '<null>' } else { $diffExitVal.GetType().Name })). Regenerate via Invoke-FluxDiff.ps1."
     exit 4
 }
-if ($diffExitVal -eq 0) {
-    # CLAUDE.md R1/R2 forbid bypassing the wrappers, so we do NOT suggest
-    # "just run flux reconcile directly" — that would defeat the contract.
-    # Instead: if there's something the operator wants to apply, they need
-    # to make the change in the source and rerun Invoke-FluxDiff.ps1 so the
-    # next sidecar records the diff. A clean-diff reconcile is operational
-    # noise that this wrapper deliberately refuses.
-    Write-Error "Diff metadata records diffExitCode=0 (no changes). Refusing to reconcile against a clean diff. Make the change you want to apply in the source path '$($meta.path)', then re-run Invoke-FluxDiff.ps1 to produce a sidecar that records the new diff before reconciling."
+# Invoke-FluxDiff records flux's NATIVE exit code in the sidecar (1 when
+# changes are present). Pin to exactly 1; anything else (0 = clean,
+# 2+ = error, any other integer = corrupted sidecar) is rejected. This
+# prevents a hand-edited sidecar with diffExitCode set to a non-1 value
+# (e.g. 99) from passing the safety gate.
+if ($diffExitVal -ne 1) {
+    Write-Error "Diff metadata diffExitCode must be 1 (flux's 'changes present' native exit). Got '$diffExitVal'. Re-run Invoke-FluxDiff.ps1 after making the change you want to apply in '$($meta.path)'."
     exit 4
 }
 

@@ -27,9 +27,14 @@
     Exit codes:
       0   - no diff
       1   - wrapper-side metadata-write failure (partial artifacts cleaned up)
-      2   - diff present (flux diff convention)
+      2   - diff present (translated from flux's native exit 1 + stdout
+            containing diff markers, for cross-family consistency with
+            helm-diff / kubectl-diff)
       3   - flux binary not in PATH
-      other - propagated from `flux diff kustomization`
+      4   - `flux diff` returned exit 1 but stdout had no diff markers
+            (treated as an error to avoid silently writing a non-diff
+            artifact)
+      other - propagated from `flux diff kustomization` (exit > 1)
 #>
 [CmdletBinding()]
 param(
@@ -70,9 +75,9 @@ if (-not (Test-Path -LiteralPath $outDir)) {
 $diffFile = Join-Path $outDir "$contextSlug.diff"
 $metaFile = "$diffFile.meta.json"
 
-# flux diff kustomization exits non-zero when changes are present (and on
-# error). We capture both stdout and stderr; treat any non-zero with
-# stderr empty as "diff present", anything with stderr content as error.
+# flux diff kustomization classification: exit-code-driven (see the
+# detailed block below the invocation). Stderr is captured for diagnosis
+# only; it does NOT decide error-vs-diff.
 $errFile = [System.IO.Path]::GetTempFileName()
 try {
     $diffOutput = & flux diff kustomization $Kustomization `
@@ -95,7 +100,11 @@ try {
     if ($isError) {
         $combined = @(@($diffOutput) -join "`n"; $diffStderr) -join "`n--- stderr ---`n"
         Write-Error "flux diff kustomization failed (exit $diffExit) for '$Kustomization': $combined"
-        exit $diffExit
+        # Remap flux's exit 1 to wrapper exit 4 in the error path so it
+        # cannot collide with the documented "wrapper-side metadata-write
+        # failure" (also exit 1). For exit > 1, propagate as-is so callers
+        # can branch on the original flux error code.
+        if ($diffExit -eq 1) { exit 4 } else { exit $diffExit }
     }
     if ($diffStderr) {
         Write-Warning "flux diff produced stderr output (not included in diff artifact):`n$diffStderr"
