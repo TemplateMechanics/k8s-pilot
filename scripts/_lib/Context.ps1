@@ -116,9 +116,11 @@ function Get-PathContentHash {
         throw "Get-PathContentHash: '$Path' is neither a file nor a directory."
     }
 
+    # -Force includes dotfiles / hidden files (e.g. .helmignore) so edits
+    # to them are detected by the drift check.
     # -CaseSensitive sort so directories containing files with case-only
     # differences (legal on Linux/macOS) hash deterministically across runs.
-    $files = Get-ChildItem -Path $resolved -Recurse -File | Sort-Object -CaseSensitive FullName
+    $files = Get-ChildItem -Path $resolved -Recurse -File -Force | Sort-Object -CaseSensitive FullName
     $sha256 = [System.Security.Cryptography.SHA256]::Create()
     try {
         $manifest = New-Object System.Text.StringBuilder

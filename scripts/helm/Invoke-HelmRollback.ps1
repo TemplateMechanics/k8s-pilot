@@ -169,7 +169,7 @@ $startedEntry = [pscustomobject]@{
     currentFile = $currentFile
     targetFile  = $targetFile
 } | ConvertTo-Json -Compress
-Add-Content -Path $logFile -Value $startedEntry
+Add-Content -Path $logFile -Value $startedEntry -Encoding utf8
 
 Write-Information "Rolling back '$Release' to revision $Revision..." -InformationAction Continue
 & helm rollback $Release $Revision `
@@ -189,7 +189,7 @@ $completedEntry = [pscustomobject]@{
     release     = $Release
     revision    = $Revision
 } | ConvertTo-Json -Compress
-Add-Content -Path $logFile -Value $completedEntry
+Add-Content -Path $logFile -Value $completedEntry -Encoding utf8
 
 if ($rollbackExit -ne 0) {
     Write-Error "helm rollback failed (exit $rollbackExit). Audit log: $logFile"
