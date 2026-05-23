@@ -5,8 +5,11 @@
 .DESCRIPTION
     Wraps the `helm diff upgrade` plugin command (requires the helm-diff plugin
     from https://github.com/databus23/helm-diff). Emits a diff artifact under
-    helm-output/<namespace>/<release>/<context>.diff with a sidecar metadata
-    JSON that Invoke-HelmUpgrade.ps1 consumes to verify the pairing.
+    helm-output/<namespace>/<release>/<contextSlug>.diff with a sidecar
+    metadata JSON that Invoke-HelmUpgrade.ps1 consumes to verify the pairing.
+    `<contextSlug>` is the filesystem-safe slug of -Context produced by
+    ConvertTo-SafeFilename (handles ':' in EKS ARN contexts and '/'); the
+    true context name is preserved inside the sidecar's `context` field.
 
 .PARAMETER ChartPath
     Path to a chart directory or packaged .tgz.

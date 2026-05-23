@@ -118,16 +118,28 @@ function Get-PathContentHash {
 
     # -Force includes dotfiles / hidden files (e.g. .helmignore) so edits
     # to them are detected by the drift check.
-    # -CaseSensitive sort so directories containing files with case-only
-    # differences (legal on Linux/macOS) hash deterministically across runs.
-    $files = Get-ChildItem -Path $resolved -Recurse -File -Force | Sort-Object -CaseSensitive FullName
+    $files = Get-ChildItem -Path $resolved -Recurse -File -Force
+
+    # Compute normalized POSIX-style relative paths once, then sort by the
+    # normalized path with -CaseSensitive. This makes the resulting hash
+    # OS-independent: a chart hashed on Windows ('templates\a.yaml') and
+    # the same chart hashed on Linux/macOS ('templates/a.yaml') will agree.
+    $entries = foreach ($f in $files) {
+        $rel = $f.FullName.Substring($resolved.Length).TrimStart('\','/')
+        $relPosix = $rel -replace '\\', '/'
+        [pscustomobject]@{
+            Rel      = $relPosix
+            FullName = $f.FullName
+        }
+    }
+    $entries = $entries | Sort-Object -CaseSensitive Rel
+
     $sha256 = [System.Security.Cryptography.SHA256]::Create()
     try {
         $manifest = New-Object System.Text.StringBuilder
-        foreach ($f in $files) {
-            $rel = $f.FullName.Substring($resolved.Length).TrimStart('\','/')
-            $fileHash = (Get-FileHash -Algorithm SHA256 -Path $f.FullName).Hash
-            [void]$manifest.Append("$rel $fileHash`n")
+        foreach ($e in $entries) {
+            $fileHash = (Get-FileHash -Algorithm SHA256 -Path $e.FullName).Hash
+            [void]$manifest.Append("$($e.Rel) $fileHash`n")
         }
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($manifest.ToString())
         $hashBytes = $sha256.ComputeHash($bytes)
