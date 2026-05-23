@@ -89,6 +89,51 @@ function Get-PathBasename {
     return (Split-Path -Path (Resolve-Path -Path $Path).Path -Leaf)
 }
 
+function Get-PathContentHash {
+    <#
+    .SYNOPSIS
+        Return a stable SHA-256 over the contents of a file or directory.
+    .DESCRIPTION
+        For a file: SHA-256 of the file bytes.
+        For a directory: SHA-256 over a deterministic manifest built from
+        (relative path + SHA-256 of each file), sorted by relative path so
+        the result is filesystem-traversal-order independent.
+
+        Used by wrapper scripts to record a content-addressable identifier
+        for a chart (or other source tree) so downstream mutation wrappers
+        can detect drift between when a diff was reviewed and when the
+        mutation runs.
+    #>
+    [CmdletBinding()]
+    [OutputType([string])]
+    param([Parameter(Mandatory)] [string] $Path)
+
+    $resolved = (Resolve-Path -Path $Path).Path
+    if (Test-Path -Path $resolved -PathType Leaf) {
+        return (Get-FileHash -Algorithm SHA256 -Path $resolved).Hash
+    }
+    if (-not (Test-Path -Path $resolved -PathType Container)) {
+        throw "Get-PathContentHash: '$Path' is neither a file nor a directory."
+    }
+
+    $files = Get-ChildItem -Path $resolved -Recurse -File | Sort-Object FullName
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $manifest = New-Object System.Text.StringBuilder
+        foreach ($f in $files) {
+            $rel = $f.FullName.Substring($resolved.Length).TrimStart('\','/')
+            $fileHash = (Get-FileHash -Algorithm SHA256 -Path $f.FullName).Hash
+            [void]$manifest.Append("$rel $fileHash`n")
+        }
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($manifest.ToString())
+        $hashBytes = $sha256.ComputeHash($bytes)
+        return ([System.BitConverter]::ToString($hashBytes) -replace '-', '').ToUpperInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+}
+
 function Assert-NonFlagArg {
     <#
     .SYNOPSIS
@@ -140,8 +185,11 @@ function ConvertTo-SafeFilename {
     # If normalization changed the value at all, append an 8-char SHA-1 hash
     # of the ORIGINAL value so distinct inputs always produce distinct slugs.
     # Without this, 'a:b' and 'a/b' both collapse to 'a_b' and would share
-    # artifact directories, overwriting each other. Hash on the original
-    # makes collisions cryptographically improbable.
+    # artifact directories, overwriting each other. 8 hex chars = 32 bits is
+    # NOT cryptographic-strength uniqueness — it's a collision-resistance
+    # hint sized for a few thousand distinct contexts per repo. If callers
+    # ever expect millions of distinct contexts in one tree, widen the
+    # suffix.
     $normalized = ($slug -ne $Value) -or ($slug.Length -gt 80)
     if ($normalized) {
         $hash = [System.Security.Cryptography.SHA1]::HashData([System.Text.Encoding]::UTF8.GetBytes($Value))

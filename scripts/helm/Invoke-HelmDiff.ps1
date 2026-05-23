@@ -126,20 +126,34 @@ if ($diffExit -ne 0 -and $diffExit -ne 2) {
 
 $diffOutput | Set-Content -Path $diffFile -Encoding utf8
 
-$valuesSha = (Get-FileHash -Algorithm SHA256 -Path $ValuesFile).Hash
-$meta = [pscustomobject]@{
-    schemaVersion   = 2
-    artifactKind    = 'helm-diff'
-    context         = $Context
-    namespace       = $Namespace
-    release         = $Release
-    chartPath       = (Resolve-Path $ChartPath).Path
-    valuesFile      = (Resolve-Path $ValuesFile).Path
-    valuesFileSha256 = $valuesSha
-    diffExitCode    = $diffExit
-    generatedAt     = (Get-Date -AsUTC).ToString('o')
+# Metadata generation runs under $ErrorActionPreference='Stop', so any
+# failure here (hash error, path resolution, disk full) would terminate
+# without the documented exit-code path. Wrap to clean up partial artifacts.
+try {
+    $valuesSha = (Get-FileHash -Algorithm SHA256 -Path $ValuesFile -ErrorAction Stop).Hash
+    $chartSha  = Get-PathContentHash -Path $ChartPath
+    $meta = [pscustomobject]@{
+        schemaVersion    = 3
+        artifactKind     = 'helm-diff'
+        context          = $Context
+        namespace        = $Namespace
+        release          = $Release
+        chartPath        = (Resolve-Path $ChartPath).Path
+        chartContentSha256 = $chartSha
+        valuesFile       = (Resolve-Path $ValuesFile).Path
+        valuesFileSha256 = $valuesSha
+        diffExitCode     = $diffExit
+        generatedAt      = (Get-Date -AsUTC).ToString('o')
+    }
+    $meta | ConvertTo-Json -Depth 5 | Set-Content -Path $metaFile -Encoding utf8
 }
-$meta | ConvertTo-Json -Depth 5 | Set-Content -Path $metaFile -Encoding utf8
+catch {
+    # Clean up partial artifacts so a retry starts clean.
+    Remove-Item -Path $metaFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path $diffFile -Force -ErrorAction SilentlyContinue
+    Write-Error "Failed to write diff metadata for release '$Release': $($_.Exception.Message)"
+    exit 1
+}
 
 if ($diffExit -eq 0) {
     Write-Information "No diff: release '$Release' in namespace '$Namespace' already matches the chart + values." -InformationAction Continue

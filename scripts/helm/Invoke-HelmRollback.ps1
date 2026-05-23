@@ -154,19 +154,22 @@ if (-not $SkipConfirm) {
     }
 }
 
-# Append audit log entry.
+# Append pre-rollback audit log entry (event=started). The post-rollback
+# entry below records the outcome so a failed rollback is distinguishable
+# from a successful one when the log is replayed later.
 $logFile = Join-Path $auditDir 'rollback.log'
-$logEntry = [pscustomobject]@{
-    timestamp  = (Get-Date -AsUTC).ToString('o')
-    context    = $Context
-    namespace  = $Namespace
-    release    = $Release
-    revision   = $Revision
-    reason     = $Reason
+$startedEntry = [pscustomobject]@{
+    timestamp   = (Get-Date -AsUTC).ToString('o')
+    event       = 'started'
+    context     = $Context
+    namespace   = $Namespace
+    release     = $Release
+    revision    = $Revision
+    reason      = $Reason
     currentFile = $currentFile
     targetFile  = $targetFile
 } | ConvertTo-Json -Compress
-Add-Content -Path $logFile -Value $logEntry
+Add-Content -Path $logFile -Value $startedEntry
 
 Write-Information "Rolling back '$Release' to revision $Revision..." -InformationAction Continue
 & helm rollback $Release $Revision `
@@ -175,8 +178,21 @@ Write-Information "Rolling back '$Release' to revision $Revision..." -Informatio
     --wait
 $rollbackExit = $LASTEXITCODE
 
+$outcome = if ($rollbackExit -eq 0) { 'succeeded' } else { 'failed' }
+$completedEntry = [pscustomobject]@{
+    timestamp   = (Get-Date -AsUTC).ToString('o')
+    event       = 'completed'
+    outcome     = $outcome
+    exitCode    = $rollbackExit
+    context     = $Context
+    namespace   = $Namespace
+    release     = $Release
+    revision    = $Revision
+} | ConvertTo-Json -Compress
+Add-Content -Path $logFile -Value $completedEntry
+
 if ($rollbackExit -ne 0) {
-    Write-Error "helm rollback failed (exit $rollbackExit)."
+    Write-Error "helm rollback failed (exit $rollbackExit). Audit log: $logFile"
     exit $rollbackExit
 }
 

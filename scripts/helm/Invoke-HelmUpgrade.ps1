@@ -168,6 +168,26 @@ if ($currentValuesSha -ne $meta.valuesFileSha256) {
     exit 4
 }
 
+# Verify the chart contents haven't drifted since the diff was produced.
+# schemaVersion>=3 always emits chartContentSha256 (covers both .tgz files
+# and chart directories via a recursive manifest hash).
+if ($meta.PSObject.Properties.Name -contains 'chartContentSha256' -and $meta.chartContentSha256) {
+    try {
+        $currentChartSha = Get-PathContentHash -Path $meta.chartPath
+    }
+    catch {
+        Write-Error "Failed to compute content hash for chart '$($meta.chartPath)': $($_.Exception.Message)"
+        exit 4
+    }
+    if ($currentChartSha -ne $meta.chartContentSha256) {
+        Write-Error "Chart contents at '$($meta.chartPath)' have changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
+        exit 4
+    }
+}
+else {
+    Write-Warning "Diff metadata predates chartContentSha256 (schemaVersion < 3); skipping chart-drift check. Regenerate the diff to enable it."
+}
+
 Write-Information "Upgrading helm release '$($meta.release)' in namespace '$Namespace' on context '$Context'..." -InformationAction Continue
 # Note: --create-namespace is omitted intentionally. Helm defaults it to false,
 # and PowerShell's colon-form switch syntax (--create-namespace:$false) would
