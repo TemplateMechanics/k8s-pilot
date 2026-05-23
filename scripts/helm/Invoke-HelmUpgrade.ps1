@@ -58,7 +58,9 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 . "$PSScriptRoot/../_lib/Context.ps1"
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
-Assert-SafePathSegment -Value $Context   -Name '-Context'
+# Do NOT Assert-SafePathSegment on -Context: -Context is only passed to helm
+# as --kube-context here (no path component), and legitimate EKS ARN contexts
+# contain '/'. Argument injection is still defended via Assert-NonFlagArg.
 Assert-NonFlagArg      -Value $Namespace -Name '-Namespace'
 Assert-NonFlagArg      -Value $Context   -Name '-Context'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext

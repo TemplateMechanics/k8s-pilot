@@ -30,7 +30,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `scripts/helm/Invoke-HelmTemplate.ps1`: render a Helm chart to `helm-output/<namespace>/<release>/templated.yaml` (§3.2 Template). Mandatory `-Namespace`. Captures stderr separately so warnings cannot pollute the rendered file.
 - `scripts/helm/Invoke-HelmDiff.ps1`: `helm diff upgrade` paired with a `.diff` artifact + `.diff.meta.json` sidecar (context, namespace, release, chartPath, valuesFile, generatedAt) (§3.2 Diff). Requires `helm-diff` plugin. Preserves helm-diff exit semantics (0 = no diff, 2 = diff present, 1 = error).
 - `scripts/helm/Invoke-HelmUpgrade.ps1`: apply paired with a reviewed diff (§3.2 Upgrade). Verifies metadata `context`, `namespace`, chartPath, valuesFile match. Calls `helm upgrade --install --atomic --timeout 5m`.
-- `scripts/helm/Invoke-HelmRollback.ps1`: metadata-only mutation per §3.6. Requires `-Revision`, `-Reason` (>=5 chars), `-Context`, `-Namespace`. Renders cross-revision manifest delta (`helm get manifest --revision`) to `.helm/<context>/<namespace>/<release>/` for operator review, pauses for explicit `rollback` confirmation, then appends a JSON audit entry to `rollback.log`.
+- `scripts/helm/Invoke-HelmRollback.ps1`: metadata-only mutation per §3.6. Requires `-Revision`, `-Reason` (>=5 chars), `-Context`, `-Namespace`. Renders cross-revision manifest delta (`helm get manifest --revision`) to `.helm/<contextSlug>/<namespace>/<release>/` for operator review (true context name preserved inside the JSON audit entries), pauses for explicit `rollback` confirmation, then appends a JSON audit entry to `rollback.log`.
 
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.

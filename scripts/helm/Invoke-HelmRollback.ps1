@@ -28,7 +28,9 @@
 
 .PARAMETER Reason
     Required free-text reason recorded to the audit log at
-    .helm/<context>/<namespace>/<release>/rollback.log.
+    .helm/<contextSlug>/<namespace>/<release>/rollback.log
+    (where `<contextSlug>` is the filesystem-safe slug of -Context; the true
+    context name is recorded inside the JSON audit entries).
 
 .PARAMETER OverrideAmbientContext
     See CLAUDE.md R3.
@@ -71,7 +73,7 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
-Assert-SafePathSegment -Value $Context   -Name '-Context'
+# -Context is slugified for the audit directory below; do not reject '/' here.
 Assert-NonFlagArg      -Value $Release   -Name '-Release'
 Assert-NonFlagArg      -Value $Namespace -Name '-Namespace'
 Assert-NonFlagArg      -Value $Context   -Name '-Context'

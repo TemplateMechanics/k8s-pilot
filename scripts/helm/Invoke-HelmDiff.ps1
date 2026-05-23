@@ -63,7 +63,10 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
-Assert-SafePathSegment -Value $Context   -Name '-Context'
+# Do NOT Assert-SafePathSegment on -Context: legitimate context names (EKS
+# ARN-style "...:cluster/my-cluster") contain '/' and would be rejected.
+# Path safety is handled by ConvertTo-SafeFilename below; the true context
+# value is preserved in the sidecar metadata for verification.
 Assert-NonFlagArg      -Value $Release    -Name '-Release'
 Assert-NonFlagArg      -Value $Namespace  -Name '-Namespace'
 Assert-NonFlagArg      -Value $Context    -Name '-Context'

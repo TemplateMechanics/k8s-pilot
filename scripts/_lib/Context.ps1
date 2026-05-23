@@ -137,10 +137,11 @@ function ConvertTo-SafeFilename {
     $slug = $slug.Trim('_')
     if (-not $slug) { $slug = 'unnamed' }
     # Hard cap so very long ARN-style names don't blow filesystem limits.
+    # Hard cap at 80 chars TOTAL: 71 chars of slug + '_' + 8-char hash = 80.
     if ($slug.Length -gt 80) {
         $hash = [System.Security.Cryptography.SHA1]::HashData([System.Text.Encoding]::UTF8.GetBytes($Value))
         $shortHash = ([System.BitConverter]::ToString($hash) -replace '-', '').Substring(0, 8).ToLowerInvariant()
-        $slug = $slug.Substring(0, 72) + '_' + $shortHash
+        $slug = $slug.Substring(0, 71) + '_' + $shortHash
     }
     return $slug
 }
