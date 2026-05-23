@@ -136,12 +136,19 @@ function ConvertTo-SafeFilename {
     $slug = $slug -replace '_+', '_'
     $slug = $slug.Trim('_')
     if (-not $slug) { $slug = 'unnamed' }
-    # Hard cap so very long ARN-style names don't blow filesystem limits.
-    # Hard cap at 80 chars TOTAL: 71 chars of slug + '_' + 8-char hash = 80.
-    if ($slug.Length -gt 80) {
+
+    # If normalization changed the value at all, append an 8-char SHA-1 hash
+    # of the ORIGINAL value so distinct inputs always produce distinct slugs.
+    # Without this, 'a:b' and 'a/b' both collapse to 'a_b' and would share
+    # artifact directories, overwriting each other. Hash on the original
+    # makes collisions cryptographically improbable.
+    $normalized = ($slug -ne $Value) -or ($slug.Length -gt 80)
+    if ($normalized) {
         $hash = [System.Security.Cryptography.SHA1]::HashData([System.Text.Encoding]::UTF8.GetBytes($Value))
         $shortHash = ([System.BitConverter]::ToString($hash) -replace '-', '').Substring(0, 8).ToLowerInvariant()
-        $slug = $slug.Substring(0, 71) + '_' + $shortHash
+        # Hard cap at 80 chars TOTAL: <=71 chars of slug + '_' + 8-char hash.
+        $base = if ($slug.Length -gt 71) { $slug.Substring(0, 71) } else { $slug }
+        $slug = $base + '_' + $shortHash
     }
     return $slug
 }
