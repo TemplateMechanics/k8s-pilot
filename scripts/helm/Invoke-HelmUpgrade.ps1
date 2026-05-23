@@ -159,8 +159,13 @@ if (-not (Test-Path -LiteralPath $meta.valuesFile)) {
 # <slug>.diff). A hand-edited or moved sidecar would otherwise let us
 # upgrade a different release / namespace than the artifact the operator
 # actually reviewed.
-$artifactReleaseDir   = Split-Path -LiteralPath $DiffFile -Parent | Split-Path -Leaf
-$artifactNamespaceDir = Split-Path -LiteralPath $DiffFile -Parent | Split-Path -Parent | Split-Path -Leaf
+# Nest the Split-Path calls so EVERY step uses -LiteralPath. A pipeline
+# into 'Split-Path -Leaf' binds to -Path (positional), so wildcards
+# anywhere in the parent chain would still be interpreted.
+$artifactParent       = Split-Path -LiteralPath $DiffFile          -Parent
+$artifactReleaseDir   = Split-Path -LiteralPath $artifactParent    -Leaf
+$artifactGrandparent  = Split-Path -LiteralPath $artifactParent    -Parent
+$artifactNamespaceDir = Split-Path -LiteralPath $artifactGrandparent -Leaf
 if ($meta.release -cne $artifactReleaseDir) {
     Write-Error "Diff metadata release '$($meta.release)' does not match the release directory '$artifactReleaseDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
     exit 4
