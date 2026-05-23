@@ -40,7 +40,10 @@ function Read-ClustersRegistry {
     # Convert YAML to JSON via yq; capture stderr separately.
     $errFile = [System.IO.Path]::GetTempFileName()
     try {
-        $json = & yq -o=json eval $RegistryPath 2>$errFile
+        # mikefarah/yq v4: `eval` (alias `e`) takes an expression first
+        # and one or more file paths after. Pass '.' as the identity
+        # expression so the registry path is unambiguously a file argument.
+        $json = & yq -o=json eval '.' $RegistryPath 2>$errFile
         if ($LASTEXITCODE -ne 0) {
             $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
             throw "yq failed to parse '$RegistryPath' (exit $LASTEXITCODE): $err"
@@ -64,7 +67,19 @@ function Read-ClustersRegistry {
         return @()
     }
 
+    $allowedTiers = @('dev', 'staging', 'prod')
     $result = foreach ($c in $doc.clusters) {
+        # Validate required fields are present + non-empty so silent
+        # downstream failures don't happen.
+        foreach ($field in @('name', 'context', 'tier')) {
+            $v = $c.$field
+            if ($null -eq $v -or ([string]$v).Trim() -eq '') {
+                throw "Registry entry is missing required field '$field' (value '$v'). See config/clusters.schema.json."
+            }
+        }
+        if ($c.tier -cnotin $allowedTiers) {
+            throw "Registry entry '$($c.name)' has tier '$($c.tier)'; allowed: $($allowedTiers -join ', ')."
+        }
         $labels = @{}
         if ($c.labels) {
             foreach ($prop in $c.labels.PSObject.Properties) {
@@ -87,9 +102,12 @@ function ConvertFrom-ClusterSelector {
     .SYNOPSIS
         Parse a Kubernetes-style label selector into a structured form.
     .DESCRIPTION
-        Supports: 'k=v', 'k!=v', 'k=v,k2=v2'. The special key 'name'
-        matches the cluster's `name` field; the special key 'tier'
-        matches the cluster's `tier` field; everything else matches
+        Supports: 'k=v', 'k!=v', 'k=v,k2=v2'. Recognized special keys
+        (matched against the top-level cluster fields, not labels):
+            name     -> cluster.name
+            context  -> cluster.context
+            tier     -> cluster.tier
+        Anything else is treated as a label match against
         cluster.labels[key].
     .OUTPUTS
         Array of [pscustomobject]@{ Key; Op (=|!=); Value }.

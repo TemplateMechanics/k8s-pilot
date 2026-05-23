@@ -72,8 +72,19 @@ $clusters = Select-ClustersBySelector `
     -IncludeProd:$IncludeProd
 
 if ($clusters.Count -eq 0) {
-    Write-Warning "No clusters matched selector '$Selector'."
+    Write-Warning "No clusters matched selector '$Selector'. Note: tier=prod clusters are excluded by default; pass -IncludeProd or use an explicit name=<cluster> term to opt in."
     exit 2
+}
+
+# Validate registry-supplied values that will be passed to native CLIs.
+# A registry entry with a leading '-' in context/kubeconfig could be parsed
+# as a flag by kubectl. Catch this BEFORE we fan out so we fail fast at one
+# place rather than per-cluster inside the parallel block.
+foreach ($c in $clusters) {
+    Assert-NonFlagArg -Value $c.context -Name "registry.cluster[$($c.name)].context"
+    if ($c.kubeconfig) {
+        Assert-NonFlagArg -Value $c.kubeconfig -Name "registry.cluster[$($c.name)].kubeconfig"
+    }
 }
 
 Write-Information "Fanning kubectl get $Resource out to $($clusters.Count) cluster(s) ($MaxParallel concurrent)..." -InformationAction Continue

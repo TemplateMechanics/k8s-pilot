@@ -63,8 +63,17 @@ $clusters = Select-ClustersBySelector `
     -IncludeProd:$IncludeProd
 
 if ($clusters.Count -eq 0) {
-    Write-Warning "No clusters matched selector '$Selector'."
+    Write-Warning "No clusters matched selector '$Selector'. Note: tier=prod clusters are excluded by default; pass -IncludeProd or use an explicit name=<cluster> term to opt in."
     exit 2
+}
+
+# Validate registry-supplied native-CLI args before fan-out (see same
+# rationale in Invoke-KubectlGetAcross.ps1).
+foreach ($c in $clusters) {
+    Assert-NonFlagArg -Value $c.context -Name "registry.cluster[$($c.name)].context"
+    if ($c.kubeconfig) {
+        Assert-NonFlagArg -Value $c.kubeconfig -Name "registry.cluster[$($c.name)].kubeconfig"
+    }
 }
 
 Write-Information "Fanning helm status '$Release' (-n $Namespace) out to $($clusters.Count) cluster(s) ($MaxParallel concurrent)..." -InformationAction Continue

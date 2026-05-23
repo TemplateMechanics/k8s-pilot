@@ -54,7 +54,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
-- `agents/multi-cluster.agent.md` will land with the multi-cluster registry in PR 8.
 
 ## [0.1.0] - TBD
 
