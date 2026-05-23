@@ -113,11 +113,37 @@ if ($meta.kustomization -cne $Kustomization) {
     exit 4
 }
 
-# Cross-check the diff artifact path layout: .flux/<kustomization>/<slug>.diff
+# Cross-check the diff artifact path layout: .flux/<kustomization>/<contextSlug>.diff
 $artifactParent     = Split-Path -LiteralPath $DiffFile       -Parent
 $artifactKustomDir  = Split-Path -LiteralPath $artifactParent -Leaf
 if ($meta.kustomization -cne $artifactKustomDir) {
     Write-Error "Diff metadata kustomization '$($meta.kustomization)' does not match artifact directory '$artifactKustomDir' in '$DiffFile'. Sidecar may be hand-edited or moved."
+    exit 4
+}
+# Also verify the diff filename leaf matches the slugified context, closing
+# the gap where meta.context could be hand-edited without renaming the file.
+$expectedContextFile = (ConvertTo-SafeFilename -Value $meta.context) + '.diff'
+$actualLeaf = Split-Path -LiteralPath $DiffFile -Leaf
+if ($expectedContextFile -cne $actualLeaf) {
+    Write-Error "Diff metadata context slug '$expectedContextFile' does not match artifact filename '$actualLeaf'. Sidecar may be hand-edited or moved."
+    exit 4
+}
+
+# Refuse to reconcile against a clean diff. flux diff exits 0 when no
+# changes are present; reconciling no-op against the live cluster is
+# operational noise. Validate diffExitCode type AND value strictly.
+if ($meta.PSObject.Properties.Name -notcontains 'diffExitCode') {
+    Write-Error "Diff metadata missing diffExitCode field. Regenerate via Invoke-FluxDiff.ps1."
+    exit 4
+}
+$diffExitVal = $meta.diffExitCode
+$isIntegerScalar = $diffExitVal -is [int] -or $diffExitVal -is [long]
+if (-not $isIntegerScalar) {
+    Write-Error "Diff metadata diffExitCode must be an integer; got '$diffExitVal' (type $(if ($null -eq $diffExitVal) { '<null>' } else { $diffExitVal.GetType().Name })). Regenerate via Invoke-FluxDiff.ps1."
+    exit 4
+}
+if ($diffExitVal -eq 0) {
+    Write-Error "Diff metadata records diffExitCode=0 (no changes). Refusing to reconcile against a clean diff. If you need to force a reconcile (no diff to apply), use 'flux reconcile' directly and accept that nothing was reviewed."
     exit 4
 }
 

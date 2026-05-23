@@ -36,7 +36,7 @@ param(
     [Parameter(Mandatory)] [string] $Kustomization,
 
     [Parameter(Mandatory)]
-    [ValidateScript({ Test-Path -LiteralPath $_ })]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Container })]
     [string] $Path,
 
     [Parameter(Mandatory)] [string] $Context,
@@ -82,7 +82,11 @@ try {
     $diffStderr = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
 
     # flux diff convention: exit 0 = no changes, non-zero = changes present
-    # OR error. Distinguish by looking at stderr (errors print there).
+    # OR error. Distinguish by inspecting stderr for known error markers;
+    # if stderr is empty or only contains informational text, the non-zero
+    # exit is treated as "diff present" and we fall through to write the
+    # artifact. If stderr matches the error regex, propagate the original
+    # exit code so callers can branch.
     $isError = ($diffExit -ne 0) -and ($diffStderr -match '(?i)(error|failed|panic|cannot)')
     if ($isError) {
         $combined = @(@($diffOutput) -join "`n"; $diffStderr) -join "`n--- stderr ---`n"

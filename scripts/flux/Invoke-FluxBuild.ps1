@@ -31,7 +31,7 @@ param(
     [Parameter(Mandatory)] [string] $Kustomization,
 
     [Parameter(Mandatory)]
-    [ValidateScript({ Test-Path -LiteralPath $_ })]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Container })]
     [string] $Path,
 
     [string] $OutputDir = '.flux'
