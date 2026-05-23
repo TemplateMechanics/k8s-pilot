@@ -115,12 +115,15 @@ if ($meta.PSObject.Properties.Name -notcontains 'schemaVersion' -or $meta.schema
     exit 4
 }
 
-# Refuse to upgrade when the recorded diff was clean. helm-diff with
-# --detailed-exitcode emits 0 for no-diff and 2 for diff-present; running
-# `helm upgrade` against a clean diff still bumps the release revision
-# (no-op upgrade) which defeats the "reviewed diff" contract.
-if ($meta.diffExitCode -eq 0) {
-    Write-Error "Diff metadata records diffExitCode=0 (no changes). Refusing to upgrade against an empty diff. If you genuinely need to bump the release revision without changes, re-render the diff after making the change you want to apply."
+# Refuse to upgrade unless the sidecar records diffExitCode=2.
+# helm-diff --detailed-exitcode emits 0 for no-diff and 2 for diff-present.
+# Anything else (missing, null, non-int, or any other value including 1
+# which the wrapper treats as 'error') indicates a corrupted/hand-edited
+# sidecar or a sidecar not produced by a successful helm-diff run.
+if ($meta.PSObject.Properties.Name -notcontains 'diffExitCode' -or
+    $meta.diffExitCode -isnot [int] -or
+    $meta.diffExitCode -ne 2) {
+    Write-Error "Diff metadata diffExitCode must be 2 (helm-diff --detailed-exitcode 'changes present'), got '$($meta.diffExitCode)'. Refusing to upgrade against an empty / missing / corrupted diff. Regenerate via Invoke-HelmDiff.ps1 after editing the change you want to apply."
     exit 4
 }
 if ($meta.context -ne $Context) {
