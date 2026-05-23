@@ -6,13 +6,15 @@
 # kubeconfig contexts. See docs/MULTI-CLUSTER.md (planned, PR 11).
 #
 # Safety contract (CLAUDE.md §3.5, R4):
-#   - Read/diff fan-out (Get-Clusters / Invoke-*Across) honors -Selector.
+#   - Read fan-out (Get-Clusters / Invoke-*Across) honors -Selector.
 #   - Mutation fan-out is INTENTIONALLY NOT a single wrapper; iterate one
 #     cluster at a time via the per-tool wrappers under scripts/<tool>/.
 #   - Clusters with `tier: prod` are EXCLUDED from selector fan-out by
-#     default. To include them you must either:
-#       (a) name them explicitly via `name=<cluster>` in the selector, OR
-#       (b) pass `-IncludeProd` to Get-Clusters.
+#     default. For READS you may include them via either
+#       (a) an explicit `name=<cluster>` term in the selector, OR
+#       (b) the `-IncludeProd` switch (which the wrapper documents).
+#     There is no mutation-side `-IncludeProd` because there is no
+#     multi-cluster mutation wrapper (CLAUDE.md §3.5).
 
 schemaVersion: 1
 

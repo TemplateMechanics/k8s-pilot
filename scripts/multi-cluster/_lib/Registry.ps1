@@ -35,6 +35,12 @@ function Read-ClustersRegistry {
     if (-not (Test-Path -LiteralPath $RegistryPath -PathType Leaf)) {
         throw "Cluster registry not found at '$RegistryPath'. Create one based on the example in config/clusters.yaml."
     }
+    # Defend against -RegistryPath being interpreted as a yq flag (e.g.
+    # a path starting with '-'). The path safety + non-flag check is
+    # consistent with Assert-NonFlagArg used elsewhere in the repo.
+    if ($RegistryPath.StartsWith('-')) {
+        throw "RegistryPath '$RegistryPath' is unsafe: must not start with '-' (would be parsed as a CLI flag by yq)."
+    }
     Assert-YqAvailable
 
     # Convert YAML to JSON via yq; capture stderr separately.
@@ -117,6 +123,14 @@ function ConvertFrom-ClusterSelector {
     param(
         [Parameter(Mandatory)] [string] $Selector
     )
+    if ([string]::IsNullOrWhiteSpace($Selector)) {
+        # Reject empty selectors. An empty parsed selector would make
+        # Test-ClusterMatchesSelector return $true for every cluster, which
+        # is too easy to do by accident. Operators wanting "all clusters"
+        # should write an explicit tautology like 'tier!=__none__' or
+        # call Get-Clusters with a real label expression.
+        throw "Selector must not be empty. Use an explicit term like 'tier=staging' or 'name=<cluster>'."
+    }
     $parts = $Selector -split ','
     $result = foreach ($p in $parts) {
         $t = $p.Trim()
