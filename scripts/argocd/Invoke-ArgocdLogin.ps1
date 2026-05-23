@@ -36,10 +36,11 @@
 .OUTPUTS
     argocd's stdout. Exit codes:
       0   - login succeeded
+      2   - mutually-exclusive option combination (-Sso with -Username/-Password)
       3   - argocd binary not in PATH
       other - propagated from `argocd login`
-    Preflight parameter-validation failures terminate via throw with
-    PowerShell's default exit 1.
+    Preflight parameter-validation failures (Assert-NonFlagArg)
+    terminate via throw with PowerShell's default exit 1.
 #>
 [CmdletBinding()]
 param(

@@ -21,11 +21,11 @@
 
 .OUTPUTS
     Writes the diff artifact path to the pipeline.
-    Exit codes:
-      0   - no diff
-      1   - either propagated from `argocd app diff` error OR wrapper-side
-            metadata-write failure (partial artifacts cleaned up)
-      2   - diff present (argocd app diff convention with --exit-code)
+    Exit codes (translated from argocd's native semantics so the wrapper
+    matches helm-diff / kubectl-diff conventions across the repo):
+      0   - no diff (argocd native 0)
+      1   - wrapper-side metadata-write failure (partial artifacts cleaned up)
+      2   - diff present (argocd native 1, translated here to 2)
       3   - argocd binary not in PATH
       other - propagated from `argocd app diff` (treated as error)
 #>
@@ -42,8 +42,10 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 . "$PSScriptRoot/../_lib/Context.ps1"
 
-Assert-SafePathSegment -Value $App      -Name '-App'
-Assert-SafePathSegment -Value $Revision -Name '-Revision'
+Assert-SafePathSegment -Value $App -Name '-App'
+# Revision is intentionally NOT Assert-SafePathSegment'd because legitimate
+# git tag names can contain '/' (e.g. 'release/v1.2.3'). The slug below
+# handles filesystem safety; the true revision is recorded in the sidecar.
 Assert-NonFlagArg      -Value $App      -Name '-App'
 Assert-NonFlagArg      -Value $Revision -Name '-Revision'
 Assert-NonFlagArg      -Value $Server   -Name '-Server'
@@ -53,13 +55,16 @@ if (-not (Get-Command argocd -ErrorAction SilentlyContinue)) {
     exit 3
 }
 
-$serverSlug = ConvertTo-SafeFilename -Value $Server
-$appSlug    = ConvertTo-SafeFilename -Value $App
+$serverSlug   = ConvertTo-SafeFilename -Value $Server
+$appSlug      = ConvertTo-SafeFilename -Value $App
+$revisionSlug = ConvertTo-SafeFilename -Value $Revision
 $outDir = Join-Path (Join-Path $OutputDir $serverSlug) $appSlug
 if (-not (Test-Path -LiteralPath $outDir)) {
     New-Item -ItemType Directory -LiteralPath $outDir -Force | Out-Null
 }
-$diffFile = Join-Path $outDir "$Revision.diff"
+# Use revision slug for the filename so tags like 'release/v1.2.3' don't
+# blow up filesystem path semantics. True revision recorded in sidecar.
+$diffFile = Join-Path $outDir "$revisionSlug.diff"
 $metaFile = "$diffFile.meta.json"
 
 # argocd app diff exit codes:

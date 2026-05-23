@@ -10,7 +10,7 @@
 .PARAMETER App
     Argo CD Application name.
 
-.PARAMETER Timeout
+.PARAMETER TimeoutSeconds
     Maximum time to wait, in seconds. Default 300 (5 min).
 
 .PARAMETER Server

@@ -15,8 +15,10 @@
       7. metadata.app == basename of DiffFile's parent directory.
       8. metadata.server == basename of DiffFile's grandparent directory
          (slug match, since the path uses ConvertTo-SafeFilename).
-      9. diffExitCode == 1 (helm-diff's "changes present"; we mapped to 2 in
-         the wrapper exit, but the sidecar records argocd's native code).
+      9. diffExitCode == 1 (argocd app diff's "changes present" native exit
+         code; the AppDiff WRAPPER translates this to wrapper exit 2 for
+         cross-family consistency, but the sidecar always records argocd's
+         native exit code).
 
     On success, runs `argocd app sync <app> --revision <rev> --server <server>`.
 
