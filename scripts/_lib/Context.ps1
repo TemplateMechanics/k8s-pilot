@@ -116,7 +116,9 @@ function Get-PathContentHash {
         throw "Get-PathContentHash: '$Path' is neither a file nor a directory."
     }
 
-    $files = Get-ChildItem -Path $resolved -Recurse -File | Sort-Object FullName
+    # -CaseSensitive sort so directories containing files with case-only
+    # differences (legal on Linux/macOS) hash deterministically across runs.
+    $files = Get-ChildItem -Path $resolved -Recurse -File | Sort-Object -CaseSensitive FullName
     $sha256 = [System.Security.Cryptography.SHA256]::Create()
     try {
         $manifest = New-Object System.Text.StringBuilder
@@ -190,7 +192,10 @@ function ConvertTo-SafeFilename {
     # hint sized for a few thousand distinct contexts per repo. If callers
     # ever expect millions of distinct contexts in one tree, widen the
     # suffix.
-    $normalized = ($slug -ne $Value) -or ($slug.Length -gt 80)
+    # -cne (case-sensitive) so case-only changes like 'Prod' vs 'prod' also
+    # get the hash suffix; without this, both would slug to identical
+    # 'Prod'/'prod' and collide on case-insensitive filesystems.
+    $normalized = ($slug -cne $Value) -or ($slug.Length -gt 80)
     if ($normalized) {
         $hash = [System.Security.Cryptography.SHA1]::HashData([System.Text.Encoding]::UTF8.GetBytes($Value))
         $shortHash = ([System.BitConverter]::ToString($hash) -replace '-', '').Substring(0, 8).ToLowerInvariant()

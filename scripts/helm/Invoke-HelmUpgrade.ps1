@@ -153,7 +153,7 @@ foreach ($field in @('release', 'chartPath', 'valuesFile')) {
 # rather than a soft warning — otherwise the safety check could be bypassed
 # by hand-deleting the field from a sidecar.
 if ($meta.PSObject.Properties.Name -notcontains 'valuesFileSha256' -or -not $meta.valuesFileSha256 -or $meta.valuesFileSha256 -isnot [string]) {
-    Write-Error "Diff metadata is missing or has an invalid valuesFileSha256 field. Regenerate via Invoke-HelmDiff.ps1 (current schemaVersion is 2 and always includes this hash)."
+    Write-Error "Diff metadata is missing or has an invalid valuesFileSha256 field. Regenerate via Invoke-HelmDiff.ps1 (current schemaVersion is 3 and always includes this hash)."
     exit 4
 }
 try {
@@ -169,23 +169,24 @@ if ($currentValuesSha -ne $meta.valuesFileSha256) {
 }
 
 # Verify the chart contents haven't drifted since the diff was produced.
-# schemaVersion>=3 always emits chartContentSha256 (covers both .tgz files
-# and chart directories via a recursive manifest hash).
-if ($meta.PSObject.Properties.Name -contains 'chartContentSha256' -and $meta.chartContentSha256) {
-    try {
-        $currentChartSha = Get-PathContentHash -Path $meta.chartPath
-    }
-    catch {
-        Write-Error "Failed to compute content hash for chart '$($meta.chartPath)': $($_.Exception.Message)"
-        exit 4
-    }
-    if ($currentChartSha -ne $meta.chartContentSha256) {
-        Write-Error "Chart contents at '$($meta.chartPath)' have changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
-        exit 4
-    }
+# schemaVersion 3 always emits chartContentSha256 (covers both .tgz files
+# and chart directories via a recursive manifest hash). Treat missing/
+# invalid hash as a metadata-validation failure (matches valuesFileSha256
+# enforcement) - hand-deleting the field cannot bypass the safety check.
+if ($meta.PSObject.Properties.Name -notcontains 'chartContentSha256' -or -not $meta.chartContentSha256 -or $meta.chartContentSha256 -isnot [string]) {
+    Write-Error "Diff metadata is missing or has an invalid chartContentSha256 field. Regenerate via Invoke-HelmDiff.ps1 (current schemaVersion is 3 and always includes this hash)."
+    exit 4
 }
-else {
-    Write-Warning "Diff metadata predates chartContentSha256 (schemaVersion < 3); skipping chart-drift check. Regenerate the diff to enable it."
+try {
+    $currentChartSha = Get-PathContentHash -Path $meta.chartPath
+}
+catch {
+    Write-Error "Failed to compute content hash for chart '$($meta.chartPath)': $($_.Exception.Message)"
+    exit 4
+}
+if ($currentChartSha -ne $meta.chartContentSha256) {
+    Write-Error "Chart contents at '$($meta.chartPath)' have changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
+    exit 4
 }
 
 Write-Information "Upgrading helm release '$($meta.release)' in namespace '$Namespace' on context '$Context'..." -InformationAction Continue
