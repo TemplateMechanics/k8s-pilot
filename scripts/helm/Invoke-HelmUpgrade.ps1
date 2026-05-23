@@ -34,9 +34,13 @@
       0   - upgrade succeeded
       3   - helm binary not in PATH
       4   - metadata validation failure (missing sidecar, invalid JSON,
-            artifactKind mismatch, context/namespace/chartPath/valuesFile
-            mismatch or drift, unsafe field in sidecar)
+            artifactKind mismatch, schemaVersion mismatch,
+            context/namespace/chartPath/valuesFile mismatch or drift,
+            unsafe field in sidecar)
       other - propagated from `helm upgrade`
+    Preflight parameter-validation failures (Assert-SafePathSegment,
+    Assert-NonFlagArg, Assert-ContextSafety) terminate before the script
+    body via throw, producing PowerShell's default exit code (1).
 #>
 [CmdletBinding()]
 param(
@@ -100,6 +104,14 @@ foreach ($field in @('artifactKind', 'context', 'namespace', 'release', 'chartPa
 
 if ($meta.artifactKind -ne 'helm-diff') {
     Write-Error "Diff metadata artifactKind is '$($meta.artifactKind)', expected 'helm-diff'. Wrong wrapper?"
+    exit 4
+}
+# Pin to schemaVersion 3 so a future Invoke-HelmDiff format change
+# (added/removed fields, new semantics) cannot be silently consumed
+# with the wrong validation logic.
+$EXPECTED_SCHEMA_VERSION = 3
+if ($meta.PSObject.Properties.Name -notcontains 'schemaVersion' -or $meta.schemaVersion -ne $EXPECTED_SCHEMA_VERSION) {
+    Write-Error "Diff metadata schemaVersion is '$($meta.schemaVersion)', expected $EXPECTED_SCHEMA_VERSION. Regenerate via Invoke-HelmDiff.ps1."
     exit 4
 }
 if ($meta.context -ne $Context) {
