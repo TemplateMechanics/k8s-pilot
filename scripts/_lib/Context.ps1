@@ -108,17 +108,19 @@ function Get-PathContentHash {
     [OutputType([string])]
     param([Parameter(Mandatory)] [string] $Path)
 
-    $resolved = (Resolve-Path -Path $Path).Path
-    if (Test-Path -Path $resolved -PathType Leaf) {
-        return (Get-FileHash -Algorithm SHA256 -Path $resolved).Hash
+    $resolved = (Resolve-Path -LiteralPath $Path).Path
+    if (Test-Path -LiteralPath $resolved -PathType Leaf) {
+        return (Get-FileHash -Algorithm SHA256 -LiteralPath $resolved).Hash
     }
-    if (-not (Test-Path -Path $resolved -PathType Container)) {
+    if (-not (Test-Path -LiteralPath $resolved -PathType Container)) {
         throw "Get-PathContentHash: '$Path' is neither a file nor a directory."
     }
 
     # -Force includes dotfiles / hidden files (e.g. .helmignore) so edits
     # to them are detected by the drift check.
-    $files = Get-ChildItem -Path $resolved -Recurse -File -Force
+    # -LiteralPath defends against wildcard chars ('[','*','?') in the
+    # directory name silently selecting the wrong tree.
+    $files = Get-ChildItem -LiteralPath $resolved -Recurse -File -Force
 
     # Compute normalized POSIX-style relative paths once, then sort by the
     # normalized path with -CaseSensitive. This makes the resulting hash
@@ -138,7 +140,7 @@ function Get-PathContentHash {
     try {
         $manifest = New-Object System.Text.StringBuilder
         foreach ($e in $entries) {
-            $fileHash = (Get-FileHash -Algorithm SHA256 -Path $e.FullName).Hash
+            $fileHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $e.FullName).Hash
             [void]$manifest.Append("$($e.Rel) $fileHash`n")
         }
         $bytes = [System.Text.Encoding]::UTF8.GetBytes($manifest.ToString())
@@ -192,7 +194,10 @@ function ConvertTo-SafeFilename {
 
     # Replace any character that is invalid on Windows OR awkward in shell
     # paths with a '_'. Collapses long runs.
-    $invalidChars = '[<>:"/\\|?*\s\x00-\x1f]'
+    # Include PowerShell wildcard chars '[' and ']' so slugs cannot become
+    # accidental glob patterns when used in path callsites that take -Path
+    # (instead of -LiteralPath). Defense in depth alongside -LiteralPath.
+    $invalidChars = '[<>:"/\\|?*\[\]\s\x00-\x1f]'
     $slug = $Value -replace $invalidChars, '_'
     $slug = $slug -replace '_+', '_'
     $slug = $slug.Trim('_')

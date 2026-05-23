@@ -143,9 +143,9 @@ try {
         context          = $Context
         namespace        = $Namespace
         release          = $Release
-        chartPath        = (Resolve-Path $ChartPath).Path
+        chartPath        = (Resolve-Path -LiteralPath $ChartPath).Path
         chartContentSha256 = $chartSha
-        valuesFile       = (Resolve-Path $ValuesFile).Path
+        valuesFile       = (Resolve-Path -LiteralPath $ValuesFile).Path
         valuesFileSha256 = $valuesSha
         diffExitCode     = $diffExit
         generatedAt      = (Get-Date -AsUTC).ToString('o')

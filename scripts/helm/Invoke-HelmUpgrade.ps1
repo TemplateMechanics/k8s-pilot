@@ -75,13 +75,13 @@ if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
 }
 
 $metaFile = "$DiffFile.meta.json"
-if (-not (Test-Path $metaFile)) {
+if (-not (Test-Path -LiteralPath $metaFile)) {
     Write-Error "Diff metadata sidecar not found at '$metaFile'. Regenerate via Invoke-HelmDiff.ps1."
     exit 4
 }
 
 try {
-    $meta = Get-Content $metaFile -Raw | ConvertFrom-Json -ErrorAction Stop
+    $meta = Get-Content -LiteralPath $metaFile -Raw | ConvertFrom-Json -ErrorAction Stop
 }
 catch {
     Write-Error "Failed to parse diff metadata sidecar '$metaFile' as JSON: $($_.Exception.Message). Regenerate via Invoke-HelmDiff.ps1."
@@ -145,11 +145,11 @@ if ($meta.namespace -ne $Namespace) {
     Write-Error "Diff metadata namespace '$($meta.namespace)' does not match -Namespace '$Namespace'. Refusing to upgrade against a different namespace."
     exit 4
 }
-if (-not (Test-Path $meta.chartPath)) {
+if (-not (Test-Path -LiteralPath $meta.chartPath)) {
     Write-Error "Chart path referenced by diff metadata is missing: '$($meta.chartPath)'. Re-run Invoke-HelmDiff.ps1."
     exit 4
 }
-if (-not (Test-Path $meta.valuesFile)) {
+if (-not (Test-Path -LiteralPath $meta.valuesFile)) {
     Write-Error "Values file referenced by diff metadata is missing: '$($meta.valuesFile)'. Re-run Invoke-HelmDiff.ps1."
     exit 4
 }
@@ -192,7 +192,7 @@ if ($meta.PSObject.Properties.Name -notcontains 'valuesFileSha256' -or -not $met
     exit 4
 }
 try {
-    $currentValuesSha = (Get-FileHash -Algorithm SHA256 -Path $meta.valuesFile -ErrorAction Stop).Hash
+    $currentValuesSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $meta.valuesFile -ErrorAction Stop).Hash
 }
 catch {
     Write-Error "Failed to compute SHA-256 for values file '$($meta.valuesFile)': $($_.Exception.Message)"
