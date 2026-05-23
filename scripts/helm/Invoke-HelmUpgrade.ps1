@@ -148,7 +148,7 @@ foreach ($field in @('release', 'chartPath', 'valuesFile')) {
 }
 
 # Verify the values file hasn't drifted since the diff was produced.
-# Invoke-HelmDiff always emits schemaVersion=2 with valuesFileSha256, so a
+# Invoke-HelmDiff always emits schemaVersion=3 with valuesFileSha256, so a
 # missing/empty hash is treated as a metadata-validation failure (exit 4)
 # rather than a soft warning — otherwise the safety check could be bypassed
 # by hand-deleting the field from a sidecar.

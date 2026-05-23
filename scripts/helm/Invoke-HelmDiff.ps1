@@ -33,6 +33,9 @@
     Writes the diff artifact path to the pipeline.
     Exit codes:
       0   - no diff
+      1   - either propagated from a failed `helm diff upgrade`, OR a
+            wrapper-side failure writing/hashing the diff metadata
+            sidecar (partial artifacts are cleaned up before the exit)
       2   - diff present (helm-diff --detailed-exitcode convention)
       3   - helm binary or helm-diff plugin not installed
       other - propagated from `helm diff upgrade` (treated as error)
