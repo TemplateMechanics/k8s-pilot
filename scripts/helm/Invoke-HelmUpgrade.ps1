@@ -114,6 +114,15 @@ if ($meta.PSObject.Properties.Name -notcontains 'schemaVersion' -or $meta.schema
     Write-Error "Diff metadata schemaVersion is '$($meta.schemaVersion)', expected $EXPECTED_SCHEMA_VERSION. Regenerate via Invoke-HelmDiff.ps1."
     exit 4
 }
+
+# Refuse to upgrade when the recorded diff was clean. helm-diff with
+# --detailed-exitcode emits 0 for no-diff and 2 for diff-present; running
+# `helm upgrade` against a clean diff still bumps the release revision
+# (no-op upgrade) which defeats the "reviewed diff" contract.
+if ($meta.diffExitCode -eq 0) {
+    Write-Error "Diff metadata records diffExitCode=0 (no changes). Refusing to upgrade against an empty diff. If you genuinely need to bump the release revision without changes, re-render the diff after making the change you want to apply."
+    exit 4
+}
 if ($meta.context -ne $Context) {
     Write-Error "Diff metadata context '$($meta.context)' does not match -Context '$Context'. Refusing to upgrade against a different cluster."
     exit 4

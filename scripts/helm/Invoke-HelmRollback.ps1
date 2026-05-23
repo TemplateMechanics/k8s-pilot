@@ -62,7 +62,14 @@ param(
     [Parameter(Mandatory)] [ValidateRange(1, 1000000)] [int] $Revision,
     [Parameter(Mandatory)] [string] $Context,
     [Parameter(Mandatory)]
-    [ValidateScript({ if ($_.Trim().Length -lt 5) { throw "-Reason must be a meaningful description (>=5 chars)." } $true })]
+    [ValidateScript({
+        # Handle $null explicitly to avoid 'You cannot call a method on a
+        # null-valued expression' from .Trim() and give the user the same
+        # actionable error message regardless of input shape.
+        if ($null -eq $_) { throw "-Reason must be a meaningful description (>=5 chars)." }
+        if ($_.Trim().Length -lt 5) { throw "-Reason must be a meaningful description (>=5 chars)." }
+        $true
+    })]
     [string] $Reason,
 
     [switch] $OverrideAmbientContext,

@@ -130,12 +130,11 @@ if ($diffExit -ne 0 -and $diffExit -ne 2) {
     exit $diffExit
 }
 
-$diffOutput | Set-Content -Path $diffFile -Encoding utf8
-
-# Metadata generation runs under $ErrorActionPreference='Stop', so any
-# failure here (hash error, path resolution, disk full) would terminate
-# without the documented exit-code path. Wrap to clean up partial artifacts.
+# Write the diff artifact AND metadata inside a single try/catch so a
+# disk-full / permission failure on either follows the documented exit-1
+# contract and cleans up any partial files before exiting.
 try {
+    $diffOutput | Set-Content -Path $diffFile -Encoding utf8
     $valuesSha = (Get-FileHash -Algorithm SHA256 -Path $ValuesFile -ErrorAction Stop).Hash
     $chartSha  = Get-PathContentHash -Path $ChartPath
     $meta = [pscustomobject]@{
