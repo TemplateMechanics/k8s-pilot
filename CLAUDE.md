@@ -64,7 +64,7 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
 | Template | `Invoke-HelmTemplate.ps1` | `-ChartPath`, `-ValuesFile`, `-Release`, `-Namespace` | Rendered manifests to `helm-output/<namespace>/<release>/templated.yaml`. Namespace is mandatory because Helm releases are namespaced and `<release>` alone is not unique. |
-| Diff | `Invoke-HelmDiff.ps1` | `-ChartPath`, `-ValuesFile`, `-Release`, `-Namespace`, `-Context` | Diff artifact at `helm-output/<namespace>/<release>/<context>.diff` |
+| Diff | `Invoke-HelmDiff.ps1` | `-ChartPath`, `-ValuesFile`, `-Release`, `-Namespace`, `-Context` | Diff artifact at `helm-output/<namespace>/<release>/<contextSlug>.diff` where `<contextSlug>` is the filesystem-safe slug of `-Context` produced by `ConvertTo-SafeFilename` (handles `:` in EKS ARN contexts and `/`). True context name preserved in sidecar metadata for verification. |
 | Upgrade | `Invoke-HelmUpgrade.ps1` | `-DiffFile`, `-Namespace`, `-Context` | Requires `helm-diff` plugin. `-Namespace` is mandatory and must match the namespace recorded in the diff artifact. |
 | Rollback | `Invoke-HelmRollback.ps1` | `-Release`, `-Namespace`, `-Revision`, `-Context`, `-Reason` | Metadata-only mutation (Section 3.6); requires explicit revision number and namespace. The wrapper renders `helm get manifest <release> -n <namespace> --revision <Revision>` vs the current release and presents that as the rollback diff before executing. |
 

@@ -1,0 +1,252 @@
+<#
+.SYNOPSIS
+    Apply a Helm chart upgrade paired with a reviewed diff artifact
+    (CLAUDE.md §3.2 Upgrade).
+
+.DESCRIPTION
+    Refuses to run without a valid -DiffFile produced by Invoke-HelmDiff.ps1.
+    Verifies:
+      1. The diff metadata sidecar exists and is artifactKind=helm-diff.
+      2. The metadata's context matches -Context.
+      3. The metadata's namespace matches -Namespace.
+      4. The referenced chart path and values file still exist.
+
+    Runs `helm upgrade --install --atomic --timeout 5m` against the recorded
+    context + namespace.
+
+.PARAMETER DiffFile
+    The diff artifact path produced by Invoke-HelmDiff.ps1.
+
+.PARAMETER Namespace
+    Target namespace; must match the diff metadata's namespace.
+
+.PARAMETER Context
+    Kubernetes context; must match the diff metadata's context.
+
+.PARAMETER OverrideAmbientContext
+    See CLAUDE.md R3.
+
+.PARAMETER TimeoutSeconds
+    Helm timeout. Default 300 (5 min). Increase for slow workloads with explicit justification.
+
+.OUTPUTS
+    helm's stdout. Exit codes:
+      0   - upgrade succeeded
+      3   - helm binary not in PATH
+      4   - metadata validation failure (missing sidecar, invalid JSON,
+            artifactKind mismatch, schemaVersion mismatch,
+            context/namespace/chartPath/valuesFile mismatch or drift,
+            unsafe field in sidecar)
+      other - propagated from `helm upgrade`
+    Preflight parameter-validation failures (Assert-SafePathSegment,
+    Assert-NonFlagArg, Assert-ContextSafety) terminate before the script
+    body via throw, producing PowerShell's default exit code (1).
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
+    [string] $DiffFile,
+
+    [Parameter(Mandatory)] [string] $Namespace,
+    [Parameter(Mandatory)] [string] $Context,
+
+    [switch] $OverrideAmbientContext,
+
+    [ValidateRange(30, 3600)]
+    [int] $TimeoutSeconds = 300
+)
+
+$ErrorActionPreference = 'Stop'
+$PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
+
+. "$PSScriptRoot/../_lib/Context.ps1"
+Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
+# Do NOT Assert-SafePathSegment on -Context: -Context is only passed to helm
+# as --kube-context here (no path component), and legitimate EKS ARN contexts
+# contain '/'. Argument injection is still defended via Assert-NonFlagArg.
+Assert-NonFlagArg      -Value $Namespace -Name '-Namespace'
+Assert-NonFlagArg      -Value $Context   -Name '-Context'
+Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
+
+if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
+    Write-Error "helm not found in PATH."
+    exit 3
+}
+
+$metaFile = "$DiffFile.meta.json"
+if (-not (Test-Path -LiteralPath $metaFile)) {
+    Write-Error "Diff metadata sidecar not found at '$metaFile'. Regenerate via Invoke-HelmDiff.ps1."
+    exit 4
+}
+
+try {
+    $meta = Get-Content -LiteralPath $metaFile -Raw | ConvertFrom-Json -ErrorAction Stop
+}
+catch {
+    Write-Error "Failed to parse diff metadata sidecar '$metaFile' as JSON: $($_.Exception.Message). Regenerate via Invoke-HelmDiff.ps1."
+    exit 4
+}
+
+# Validate every field we will pass to helm is a scalar string. A
+# hand-edited sidecar with a field changed to an array (e.g.
+# "chartPath": ["foo", "--bad-flag"]) would otherwise splat into multiple
+# native args, and Assert-NonFlagArg's string coercion would see something
+# like "foo --bad-flag" or "System.Object[]" rather than the original array.
+foreach ($field in @('artifactKind', 'context', 'namespace', 'release', 'chartPath', 'valuesFile')) {
+    $value = $meta.$field
+    if ($null -eq $value -or $value -isnot [string]) {
+        $actualType = if ($null -eq $value) { '<null>' } else { $value.GetType().FullName }
+        Write-Error "Diff metadata field '$field' is not a scalar string (got $actualType). Sidecar may be corrupted or hand-edited; regenerate via Invoke-HelmDiff.ps1."
+        exit 4
+    }
+}
+
+if ($meta.artifactKind -ne 'helm-diff') {
+    Write-Error "Diff metadata artifactKind is '$($meta.artifactKind)', expected 'helm-diff'. Wrong wrapper?"
+    exit 4
+}
+# Pin to schemaVersion 3 so a future Invoke-HelmDiff format change
+# (added/removed fields, new semantics) cannot be silently consumed
+# with the wrong validation logic.
+$EXPECTED_SCHEMA_VERSION = 3
+if ($meta.PSObject.Properties.Name -notcontains 'schemaVersion' -or $meta.schemaVersion -ne $EXPECTED_SCHEMA_VERSION) {
+    Write-Error "Diff metadata schemaVersion is '$($meta.schemaVersion)', expected $EXPECTED_SCHEMA_VERSION. Regenerate via Invoke-HelmDiff.ps1."
+    exit 4
+}
+
+# Refuse to upgrade unless the sidecar records diffExitCode=2.
+# helm-diff --detailed-exitcode emits 0 for no-diff and 2 for diff-present.
+# Anything else (missing, null, non-int, or any other value including 1
+# which the wrapper treats as 'error') indicates a corrupted/hand-edited
+# sidecar or a sidecar not produced by a successful helm-diff run.
+# ConvertFrom-Json typically returns numeric values as [long] (Int64),
+# so -isnot [int] alone would false-reject a perfectly valid sidecar.
+# Accept Int32 or Int64 (the integer types JSON produces) and require
+# the value to equal 2 directly — we intentionally do NOT cast from
+# float/decimal because [int]2.9 silently rounds to 2.
+$diffExitVal = $meta.diffExitCode
+# Accept only true integer types ([int] = Int32, [long] = Int64).
+# Floats/decimals are rejected outright: [int]2.9 silently rounds to 2,
+# so a hand-edited sidecar with diffExitCode=2.9 would otherwise pass
+# the safety gate.
+$isIntegerScalar = $diffExitVal -is [int] -or $diffExitVal -is [long]
+if ($meta.PSObject.Properties.Name -notcontains 'diffExitCode' -or
+    -not $isIntegerScalar -or
+    $diffExitVal -ne 2) {
+    Write-Error "Diff metadata diffExitCode must be the integer 2 (helm-diff --detailed-exitcode 'changes present'), got '$diffExitVal' (type $(if ($null -eq $diffExitVal) { '<null>' } else { $diffExitVal.GetType().Name })). Refusing to upgrade against an empty / missing / corrupted diff. Regenerate via Invoke-HelmDiff.ps1 after editing the change you want to apply."
+    exit 4
+}
+if ($meta.context -cne $Context) {
+    Write-Error "Diff metadata context '$($meta.context)' does not match -Context '$Context'. Refusing to upgrade against a different cluster."
+    exit 4
+}
+if ($meta.namespace -cne $Namespace) {
+    Write-Error "Diff metadata namespace '$($meta.namespace)' does not match -Namespace '$Namespace'. Refusing to upgrade against a different namespace."
+    exit 4
+}
+if (-not (Test-Path -LiteralPath $meta.chartPath)) {
+    Write-Error "Chart path referenced by diff metadata is missing: '$($meta.chartPath)'. Re-run Invoke-HelmDiff.ps1."
+    exit 4
+}
+if (-not (Test-Path -LiteralPath $meta.valuesFile)) {
+    Write-Error "Values file referenced by diff metadata is missing: '$($meta.valuesFile)'. Re-run Invoke-HelmDiff.ps1."
+    exit 4
+}
+
+# Cross-check that meta.release AND meta.namespace match the directory
+# layout implied by the diff artifact path (helm-output/<namespace>/<release>/
+# <slug>.diff). A hand-edited or moved sidecar would otherwise let us
+# upgrade a different release / namespace than the artifact the operator
+# actually reviewed.
+# Nest the Split-Path calls so EVERY step uses -LiteralPath. A pipeline
+# into 'Split-Path -Leaf' binds to -Path (positional), so wildcards
+# anywhere in the parent chain would still be interpreted.
+$artifactParent       = Split-Path -LiteralPath $DiffFile          -Parent
+$artifactReleaseDir   = Split-Path -LiteralPath $artifactParent    -Leaf
+$artifactGrandparent  = Split-Path -LiteralPath $artifactParent    -Parent
+$artifactNamespaceDir = Split-Path -LiteralPath $artifactGrandparent -Leaf
+if ($meta.release -cne $artifactReleaseDir) {
+    Write-Error "Diff metadata release '$($meta.release)' does not match the release directory '$artifactReleaseDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
+    exit 4
+}
+if ($meta.namespace -cne $artifactNamespaceDir) {
+    Write-Error "Diff metadata namespace '$($meta.namespace)' does not match the namespace directory '$artifactNamespaceDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
+    exit 4
+}
+
+# Defend against argument injection: a corrupted/hand-edited sidecar where
+# any of these fields starts with '-' would be parsed as a helm flag.
+foreach ($field in @('release', 'chartPath', 'valuesFile')) {
+    try {
+        Assert-NonFlagArg -Value $meta.$field -Name "metadata.$field"
+    }
+    catch {
+        Write-Error "Diff metadata field '$field' is unsafe: $($_.Exception.Message). Regenerate via Invoke-HelmDiff.ps1."
+        exit 4
+    }
+}
+
+# Verify the values file hasn't drifted since the diff was produced.
+# Invoke-HelmDiff always emits schemaVersion=3 with valuesFileSha256, so a
+# missing/empty hash is treated as a metadata-validation failure (exit 4)
+# rather than a soft warning — otherwise the safety check could be bypassed
+# by hand-deleting the field from a sidecar.
+if ($meta.PSObject.Properties.Name -notcontains 'valuesFileSha256' -or -not $meta.valuesFileSha256 -or $meta.valuesFileSha256 -isnot [string]) {
+    Write-Error "Diff metadata is missing or has an invalid valuesFileSha256 field. Regenerate via Invoke-HelmDiff.ps1 (current schemaVersion is 3 and always includes this hash)."
+    exit 4
+}
+try {
+    $currentValuesSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $meta.valuesFile -ErrorAction Stop).Hash
+}
+catch {
+    Write-Error "Failed to compute SHA-256 for values file '$($meta.valuesFile)': $($_.Exception.Message)"
+    exit 4
+}
+if ($currentValuesSha -ne $meta.valuesFileSha256) {
+    Write-Error "Values file '$($meta.valuesFile)' has changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
+    exit 4
+}
+
+# Verify the chart contents haven't drifted since the diff was produced.
+# schemaVersion 3 always emits chartContentSha256 (covers both .tgz files
+# and chart directories via a recursive manifest hash). Treat missing/
+# invalid hash as a metadata-validation failure (matches valuesFileSha256
+# enforcement) - hand-deleting the field cannot bypass the safety check.
+if ($meta.PSObject.Properties.Name -notcontains 'chartContentSha256' -or -not $meta.chartContentSha256 -or $meta.chartContentSha256 -isnot [string]) {
+    Write-Error "Diff metadata is missing or has an invalid chartContentSha256 field. Regenerate via Invoke-HelmDiff.ps1 (current schemaVersion is 3 and always includes this hash)."
+    exit 4
+}
+try {
+    $currentChartSha = Get-PathContentHash -Path $meta.chartPath
+}
+catch {
+    Write-Error "Failed to compute content hash for chart '$($meta.chartPath)': $($_.Exception.Message)"
+    exit 4
+}
+if ($currentChartSha -ne $meta.chartContentSha256) {
+    Write-Error "Chart contents at '$($meta.chartPath)' have changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
+    exit 4
+}
+
+Write-Information "Upgrading helm release '$($meta.release)' in namespace '$Namespace' on context '$Context'..." -InformationAction Continue
+# Note: --create-namespace is omitted intentionally. Helm defaults it to false,
+# and PowerShell's colon-form switch syntax (--create-namespace:$false) would
+# emit the literal "--create-namespace:False" string, which helm rejects as an
+# unknown flag. If a caller actually needs namespace creation, that's an
+# upstream decision (apply the Namespace via kubectl wrappers first).
+& helm upgrade --install $meta.release $meta.chartPath `
+    --kube-context $Context `
+    --namespace $Namespace `
+    --values $meta.valuesFile `
+    --atomic `
+    --timeout "${TimeoutSeconds}s"
+$upgradeExit = $LASTEXITCODE
+
+if ($upgradeExit -ne 0) {
+    Write-Error "helm upgrade failed (exit $upgradeExit). Because --atomic was set, the release should have rolled back automatically — verify with: helm history $($meta.release) -n $Namespace --kube-context $Context"
+    exit $upgradeExit
+}
+
+Write-Information "Upgrade complete. Consider running: helm status $($meta.release) -n $Namespace --kube-context $Context" -InformationAction Continue
+exit 0
