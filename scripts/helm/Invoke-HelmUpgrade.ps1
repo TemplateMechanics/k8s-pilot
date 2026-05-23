@@ -105,6 +105,16 @@ if (-not (Test-Path $meta.valuesFile)) {
     exit 4
 }
 
+# Cross-check that meta.release matches the release implied by the diff
+# artifact path layout (helm-output/<namespace>/<release>/<slug>.diff). A
+# hand-edited sidecar with mismatched release would otherwise let us upgrade
+# a different release than the artifact the operator reviewed.
+$artifactReleaseDir = Split-Path -Path $DiffFile -Parent | Split-Path -Leaf
+if ($meta.release -ne $artifactReleaseDir) {
+    Write-Error "Diff metadata release '$($meta.release)' does not match the release directory '$artifactReleaseDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
+    exit 4
+}
+
 # Defend against argument injection: a corrupted/hand-edited sidecar where
 # any of these fields starts with '-' would be parsed as a helm flag.
 foreach ($field in @('release', 'chartPath', 'valuesFile')) {
@@ -121,7 +131,13 @@ foreach ($field in @('release', 'chartPath', 'valuesFile')) {
 # (schemaVersion 1 sidecars predate this field; treat as missing-hash skip
 #  with a warning so legacy artifacts don't silently bypass the check.)
 if ($meta.PSObject.Properties.Name -contains 'valuesFileSha256' -and $meta.valuesFileSha256) {
-    $currentValuesSha = (Get-FileHash -Algorithm SHA256 -Path $meta.valuesFile).Hash
+    try {
+        $currentValuesSha = (Get-FileHash -Algorithm SHA256 -Path $meta.valuesFile -ErrorAction Stop).Hash
+    }
+    catch {
+        Write-Error "Failed to compute SHA-256 for values file '$($meta.valuesFile)': $($_.Exception.Message)"
+        exit 4
+    }
     if ($currentValuesSha -ne $meta.valuesFileSha256) {
         Write-Error "Values file '$($meta.valuesFile)' has changed since the diff was produced (sha mismatch). Re-run Invoke-HelmDiff.ps1 to refresh."
         exit 4
