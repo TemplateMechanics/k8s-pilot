@@ -46,11 +46,11 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateScript({ Test-Path $_ })]
+    [ValidateScript({ Test-Path -LiteralPath $_ })]
     [string] $ChartPath,
 
     [Parameter(Mandatory)]
-    [ValidateScript({ Test-Path $_ -PathType Leaf })]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
     [string] $ValuesFile,
 
     [Parameter(Mandatory)] [string] $Release,

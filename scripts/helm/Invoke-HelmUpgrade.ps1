@@ -45,7 +45,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateScript({ Test-Path $_ -PathType Leaf })]
+    [ValidateScript({ Test-Path -LiteralPath $_ -PathType Leaf })]
     [string] $DiffFile,
 
     [Parameter(Mandatory)] [string] $Namespace,
