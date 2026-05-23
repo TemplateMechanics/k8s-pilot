@@ -120,10 +120,15 @@ if ($meta.PSObject.Properties.Name -notcontains 'schemaVersion' -or $meta.schema
 # Anything else (missing, null, non-int, or any other value including 1
 # which the wrapper treats as 'error') indicates a corrupted/hand-edited
 # sidecar or a sidecar not produced by a successful helm-diff run.
+# ConvertFrom-Json typically returns numeric values as [long] (Int64),
+# so -isnot [int] would false-reject a perfectly valid sidecar.
+# Accept any scalar numeric value, cast to int, and require exactly 2.
+$diffExitVal = $meta.diffExitCode
+$isNumericScalar = $diffExitVal -is [int] -or $diffExitVal -is [long] -or $diffExitVal -is [double] -or $diffExitVal -is [decimal]
 if ($meta.PSObject.Properties.Name -notcontains 'diffExitCode' -or
-    $meta.diffExitCode -isnot [int] -or
-    $meta.diffExitCode -ne 2) {
-    Write-Error "Diff metadata diffExitCode must be 2 (helm-diff --detailed-exitcode 'changes present'), got '$($meta.diffExitCode)'. Refusing to upgrade against an empty / missing / corrupted diff. Regenerate via Invoke-HelmDiff.ps1 after editing the change you want to apply."
+    -not $isNumericScalar -or
+    [int]$diffExitVal -ne 2) {
+    Write-Error "Diff metadata diffExitCode must be 2 (helm-diff --detailed-exitcode 'changes present'), got '$diffExitVal'. Refusing to upgrade against an empty / missing / corrupted diff. Regenerate via Invoke-HelmDiff.ps1 after editing the change you want to apply."
     exit 4
 }
 if ($meta.context -ne $Context) {

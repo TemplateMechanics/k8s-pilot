@@ -155,7 +155,9 @@ Write-Information "Inspect the two files (or run a diff tool of choice) before a
 
 if (-not $SkipConfirm) {
     $confirm = Read-Host "Type 'rollback' to proceed"
-    if ($confirm -ne 'rollback') {
+    # Case-sensitive comparison (-cne) so 'Rollback', 'ROLLBACK', etc. do
+    # not satisfy a strict safety gate. Trim incidental whitespace.
+    if (($null -eq $confirm) -or ($confirm.Trim() -cne 'rollback')) {
         Write-Information "Aborted by user." -InformationAction Continue
         exit 5
     }
