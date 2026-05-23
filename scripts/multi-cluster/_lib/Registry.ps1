@@ -134,7 +134,14 @@ function ConvertFrom-ClusterSelector {
     $parts = $Selector -split ','
     $result = foreach ($p in $parts) {
         $t = $p.Trim()
-        if (-not $t) { continue }
+        if (-not $t) {
+            # Reject empty terms instead of silently dropping them. A
+            # selector like 'tier=staging,' (trailing comma) or ',,'
+            # almost certainly indicates an editing mistake; failing loud
+            # is better than producing a selector with fewer terms than
+            # the operator wrote.
+            throw "Selector '$Selector' contains an empty term. Remove stray commas."
+        }
         if ($t -match '^([A-Za-z0-9_./-]+)(!=|=)([A-Za-z0-9_./:-]+)$') {
             [pscustomobject]@{
                 Key   = $Matches[1]

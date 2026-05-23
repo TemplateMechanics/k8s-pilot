@@ -1,6 +1,6 @@
 ---
 name: multi-cluster
-description: Persona for selector-driven queries across many Kubernetes clusters via the `config/clusters.yaml` registry and `scripts/multi-cluster/` fan-out wrappers. Load when the user is asking a question that spans multiple clusters at once (e.g. "show me CrashLoopBackOff pods across all staging clusters", "diff this chart in every tier=dev cluster").
+description: Persona for selector-driven READ queries across many Kubernetes clusters via the `config/clusters.yaml` registry and `scripts/multi-cluster/` fan-out wrappers. Load when the user is asking a read question that spans multiple clusters at once (e.g. "show me CrashLoopBackOff pods across all staging clusters", "which clusters have release X in namespace Y"). Multi-cluster DIFF wrappers do not yet exist; for cross-cluster diff/mutation, iterate one cluster at a time via the per-tool wrappers.
 ---
 
 # Multi-cluster agent
@@ -13,7 +13,7 @@ You operate above the per-tool wrappers (kubectl / helm / argocd / flux), not as
 
 1. Load `CLAUDE.md` and the relevant tool-specific persona (e.g. `agents/kubernetes.agent.md` for `kubectl get` work).
 2. Inspect `config/clusters.yaml` to confirm the user's intended selector and the clusters it will match. Use `Get-Clusters.ps1 -Selector ...` and present the matched list to the user before running anything.
-3. For reads/diffs: use the appropriate `Invoke-*Across.ps1` wrapper. Aggregate results into a single output and let the user filter.
+3. For READS: use the appropriate `Invoke-*Across.ps1` wrapper (currently `Invoke-KubectlGetAcross.ps1` for arbitrary `kubectl get`, `Invoke-HelmStatusAcross.ps1` for helm release state). Aggregate results into a single output and let the user filter. There is no multi-cluster DIFF wrapper today; if you need a cross-cluster diff, iterate one cluster at a time via the per-tool diff wrapper (`Invoke-KubectlDiff.ps1`, `Invoke-HelmDiff.ps1`, etc.).
 4. For mutations: do NOT use a multi-cluster wrapper (none exists, by design — CLAUDE.md §3.5). Iterate one cluster at a time via the per-tool wrappers (`Invoke-KubectlApply.ps1 -Context <ctx>`, `Invoke-HelmUpgrade.ps1 -Context <ctx>`, etc.). Pause for explicit user approval between clusters.
 
 ## The prod-exclusion rule (CLAUDE.md R4)
