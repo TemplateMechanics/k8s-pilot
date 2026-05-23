@@ -154,7 +154,29 @@ Write-Information "Cross-revision delta for release '$Release' (current -> revis
 Write-Information "  current  : $currentFile" -InformationAction Continue
 Write-Information "  target   : $targetFile"  -InformationAction Continue
 Write-Information "  reason   : $Reason"      -InformationAction Continue
-Write-Information "Inspect the two files (or run a diff tool of choice) before approving." -InformationAction Continue
+
+# Per CLAUDE.md §3.6, the rollback delta must be presented in-chat for
+# approval. Emit a basic line-level diff via Compare-Object so the operator
+# sees the actual change before confirming, in addition to the on-disk
+# files (which are kept for richer inspection).
+Write-Information "" -InformationAction Continue
+Write-Information "--- diff (current -> revision $Revision) ---" -InformationAction Continue
+$currentLines = Get-Content -Path $currentFile -Encoding utf8
+$targetLines  = Get-Content -Path $targetFile  -Encoding utf8
+$diff = Compare-Object -ReferenceObject $currentLines -DifferenceObject $targetLines `
+    -CaseSensitive -IncludeEqual:$false
+if (-not $diff) {
+    Write-Information "(no changes between current and revision $Revision)" -InformationAction Continue
+}
+else {
+    foreach ($d in $diff) {
+        $marker = if ($d.SideIndicator -eq '<=') { '-' } else { '+' }
+        Write-Information "$marker $($d.InputObject)" -InformationAction Continue
+    }
+}
+Write-Information "--- end diff ---" -InformationAction Continue
+Write-Information "" -InformationAction Continue
+Write-Information "Files retained for richer inspection (run any diff tool against them)." -InformationAction Continue
 
 if (-not $SkipConfirm) {
     $confirm = Read-Host "Type 'rollback' to proceed"
