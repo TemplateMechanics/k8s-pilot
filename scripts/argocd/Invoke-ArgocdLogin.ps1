@@ -41,7 +41,7 @@
 .OUTPUTS
     argocd's stdout. Exit codes:
       0   - login succeeded
-      2   - mutually-exclusive option combination (-Sso with -Username/-Password)
+      2   - mutually-exclusive option combination (-Sso with -Username)
       3   - argocd binary not in PATH
       other - propagated from `argocd login`
     Preflight parameter-validation failures (Assert-NonFlagArg)
