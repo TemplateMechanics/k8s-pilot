@@ -74,9 +74,9 @@ Argo CD has its own session/server state independent of the kubectl context (the
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
-| Login | `Invoke-ArgocdLogin.ps1` | `-Server` | Stores session in the repo-local `.argocd/` (gitignored) |
-| App diff | `Invoke-ArgocdAppDiff.ps1` | `-App`, `-Revision`, `-Server` | Diff artifact at `.argocd/<server>/<app>/<revision>.diff` |
-| App sync | `Invoke-ArgocdAppSync.ps1` | `-App`, `-DiffFile`, `-Revision`, `-Server` | Mutation; requires diff artifact. Asserts the diff artifact was produced against the same `-Server`. |
+| Login | `Invoke-ArgocdLogin.ps1` | `-Server` | Authenticates the argocd CLI. Session lives in the user's standard argocd config (not `.argocd/`); safety guarantee is per-call via mandatory `-Server` on every other wrapper. |
+| App diff | `Invoke-ArgocdAppDiff.ps1` | `-App`, `-Revision`, `-Server` | Diff artifact at `.argocd/<serverSlug>/<appSlug>/<revisionSlug>.diff` (each segment is `ConvertTo-SafeFilename`; true values in sidecar). |
+| App sync | `Invoke-ArgocdAppSync.ps1` | `-App`, `-DiffFile`, `-Revision`, `-Server` | Mutation; requires diff artifact. Asserts the diff artifact was produced against the same `-Server`, `-App`, and `-Revision`. |
 | App wait | `Invoke-ArgocdAppWait.ps1` | `-App`, `-TimeoutSeconds`, `-Server` | Blocks until Healthy + Synced on the named server |
 
 ### 3.4 `flux`  (scripts/flux/, planned PR 7)

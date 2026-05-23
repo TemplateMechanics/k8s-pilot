@@ -25,13 +25,14 @@
 
 .PARAMETER Username
     Username for login (passed via `--username`). Optional if using SSO.
-
-.PARAMETER Password
-    Password (passed via `--password`). Optional if using SSO. Consider
-    `--sso` flow instead for production.
+    When set without -Sso, argocd will prompt INTERACTIVELY for the
+    password. We deliberately do not accept a `-Password` parameter
+    because passing secrets on the process command line exposes them
+    via `ps`/`tasklist` and may be captured by shell history or
+    monitoring agents.
 
 .PARAMETER Sso
-    Use SSO browser flow (`--sso`). Mutually exclusive with -Username/-Password.
+    Use SSO browser flow (`--sso`). Mutually exclusive with -Username.
 
 .PARAMETER Insecure
     Skip TLS verification (passes `--insecure`). Discouraged; use only
@@ -50,7 +51,6 @@
 param(
     [Parameter(Mandatory)] [string] $Server,
     [string] $Username,
-    [string] $Password,
     [switch] $Sso,
     [switch] $Insecure
 )
@@ -62,21 +62,23 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 Assert-NonFlagArg -Value $Server -Name '-Server'
 if ($Username) { Assert-NonFlagArg -Value $Username -Name '-Username' }
-if ($Password) { Assert-NonFlagArg -Value $Password -Name '-Password' }
 
 if (-not (Get-Command argocd -ErrorAction SilentlyContinue)) {
     Write-Error "argocd not found in PATH. Install argocd >= 2.10."
     exit 3
 }
-if ($Sso -and ($Username -or $Password)) {
-    Write-Error "-Sso is mutually exclusive with -Username/-Password."
+if ($Sso -and $Username) {
+    Write-Error "-Sso is mutually exclusive with -Username."
     exit 2
 }
 
 $loginArgs = @('login', $Server)
 if ($Sso) { $loginArgs += '--sso' }
-if ($Username) { $loginArgs += @('--username', $Username) }
-if ($Password) { $loginArgs += @('--password', $Password) }
+if ($Username) {
+    # argocd will prompt for the password interactively when --username is
+    # set without --password; deliberate, to keep secrets off the command line.
+    $loginArgs += @('--username', $Username)
+}
 if ($Insecure) { $loginArgs += '--insecure' }
 
 Write-Information "Logging into Argo CD server '$Server'..." -InformationAction Continue
