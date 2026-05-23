@@ -17,12 +17,24 @@ function Assert-YqAvailable {
     if (-not (Get-Command yq -ErrorAction SilentlyContinue)) {
         throw "yq not found in PATH. Install yq >= 4.0 (https://github.com/mikefarah/yq) for YAML registry parsing."
     }
-    # mikefarah/yq v4 prints version as 'yq (https://...) version v4.x.y'.
-    # kislyuk/yq (Python) prints 'jq version ...'. We need v4 specifically
-    # because the eval-with-expression-and-file syntax differs.
+    # mikefarah/yq v4 prints 'yq (https://...) version v4.x.y'. v3 used
+    # different positional syntax (no separate expression arg). The
+    # Python kislyuk/yq prints 'jq version ...' (jq under the hood).
+    # Reject anything that looks like Python yq, and require a
+    # 'version vN...' where N >= 4 so a future mikefarah v5 still passes
+    # until/unless we explicitly need to gate against it.
     $verOut = (& yq --version 2>&1 | Out-String).Trim()
-    if ($verOut -notmatch '(?i)\bv?4(?:\.\d+){1,2}\b' -or $verOut -match '(?i)jq version') {
-        throw "Unsupported yq version (got '$verOut'). This wrapper requires mikefarah/yq v4 (https://github.com/mikefarah/yq); install via your package manager or 'go install github.com/mikefarah/yq/v4@latest'."
+    if ($verOut -match '(?i)jq version') {
+        throw "Unsupported yq implementation (got '$verOut' — looks like kislyuk/yq, which is a Python wrapper around jq). This wrapper requires mikefarah/yq v4+; install via your package manager or 'go install github.com/mikefarah/yq/v4@latest'."
+    }
+    if ($verOut -match '(?i)\bversion\s+v?(\d+)(?:\.\d+){0,2}') {
+        $major = [int]$Matches[1]
+        if ($major -lt 4) {
+            throw "Unsupported yq major version (got '$verOut'). This wrapper requires mikefarah/yq v4+ because the 'eval <expr> <file>' syntax differs in v3."
+        }
+    }
+    else {
+        throw "Could not parse yq version from '$verOut'. This wrapper requires mikefarah/yq v4+."
     }
 }
 

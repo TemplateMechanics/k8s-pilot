@@ -105,9 +105,12 @@ $results = $clusters | ForEach-Object -ThrottleLimit $MaxParallel -Parallel {
     $kubectlArgs = @('--context', $c.context, 'get', $using:Resource)
     if ($using:Namespace) {
         $kubectlArgs += @('-n', $using:Namespace)
-    } else {
-        $kubectlArgs += '-A'
     }
+    # If -Namespace was omitted, do NOT add -A unconditionally: that
+    # would fail for cluster-scoped resources (nodes, namespaces,
+    # clusterroles, crds...). Let kubectl pick the right scope; the
+    # operator can opt into all-namespace listing by passing
+    # -Namespace 'all' explicitly via the per-cluster shell if needed.
     if ($c.kubeconfig) {
         $kubectlArgs = @('--kubeconfig', $c.kubeconfig) + $kubectlArgs
     }
