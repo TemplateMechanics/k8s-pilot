@@ -121,8 +121,10 @@ if ($meta.PSObject.Properties.Name -notcontains 'schemaVersion' -or $meta.schema
 # which the wrapper treats as 'error') indicates a corrupted/hand-edited
 # sidecar or a sidecar not produced by a successful helm-diff run.
 # ConvertFrom-Json typically returns numeric values as [long] (Int64),
-# so -isnot [int] would false-reject a perfectly valid sidecar.
-# Accept any scalar numeric value, cast to int, and require exactly 2.
+# so -isnot [int] alone would false-reject a perfectly valid sidecar.
+# Accept Int32 or Int64 (the integer types JSON produces) and require
+# the value to equal 2 directly — we intentionally do NOT cast from
+# float/decimal because [int]2.9 silently rounds to 2.
 $diffExitVal = $meta.diffExitCode
 # Accept only true integer types ([int] = Int32, [long] = Int64).
 # Floats/decimals are rejected outright: [int]2.9 silently rounds to 2,

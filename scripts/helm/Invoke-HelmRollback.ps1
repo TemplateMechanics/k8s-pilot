@@ -156,22 +156,34 @@ Write-Information "  target   : $targetFile"  -InformationAction Continue
 Write-Information "  reason   : $Reason"      -InformationAction Continue
 
 # Per CLAUDE.md §3.6, the rollback delta must be presented in-chat for
-# approval. Emit a basic line-level diff via Compare-Object so the operator
-# sees the actual change before confirming, in addition to the on-disk
-# files (which are kept for richer inspection).
+# approval. Prefer `git diff --no-index` for a real positional line diff
+# (preserves order, context, moves). Fall back to Compare-Object with a
+# clear warning if git is not on PATH, since Compare-Object is set-style
+# and can misrepresent moves/duplicates.
 Write-Information "" -InformationAction Continue
 Write-Information "--- diff (current -> revision $Revision) ---" -InformationAction Continue
-$currentLines = Get-Content -Path $currentFile -Encoding utf8
-$targetLines  = Get-Content -Path $targetFile  -Encoding utf8
-$diff = Compare-Object -ReferenceObject $currentLines -DifferenceObject $targetLines `
-    -CaseSensitive -IncludeEqual:$false
-if (-not $diff) {
-    Write-Information "(no changes between current and revision $Revision)" -InformationAction Continue
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    & git --no-pager diff --no-index --no-color -- $currentFile $targetFile 2>&1 |
+        ForEach-Object { Write-Information $_ -InformationAction Continue }
+    # git diff --no-index exits 1 when files differ; that's expected, not an error.
+    if ($LASTEXITCODE -gt 1) {
+        Write-Warning "git diff returned exit $LASTEXITCODE; the diff above may be incomplete."
+    }
 }
 else {
-    foreach ($d in $diff) {
-        $marker = if ($d.SideIndicator -eq '<=') { '-' } else { '+' }
-        Write-Information "$marker $($d.InputObject)" -InformationAction Continue
+    Write-Warning "git not on PATH — falling back to Compare-Object (set-based; moves/duplicates may misrepresent). Install git for a real positional diff."
+    $currentLines = Get-Content -Path $currentFile -Encoding utf8
+    $targetLines  = Get-Content -Path $targetFile  -Encoding utf8
+    $diff = Compare-Object -ReferenceObject $currentLines -DifferenceObject $targetLines `
+        -CaseSensitive -IncludeEqual:$false
+    if (-not $diff) {
+        Write-Information "(no changes between current and revision $Revision)" -InformationAction Continue
+    }
+    else {
+        foreach ($d in $diff) {
+            $marker = if ($d.SideIndicator -eq '<=') { '-' } else { '+' }
+            Write-Information "$marker $($d.InputObject)" -InformationAction Continue
+        }
     }
 }
 Write-Information "--- end diff ---" -InformationAction Continue
