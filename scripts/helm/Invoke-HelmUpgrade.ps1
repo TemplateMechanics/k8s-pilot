@@ -84,6 +84,20 @@ catch {
     exit 4
 }
 
+# Validate every field we will pass to helm is a scalar string. A
+# hand-edited sidecar with a field changed to an array (e.g.
+# "chartPath": ["foo", "--bad-flag"]) would otherwise splat into multiple
+# native args, and Assert-NonFlagArg's string coercion would see something
+# like "foo --bad-flag" or "System.Object[]" rather than the original array.
+foreach ($field in @('artifactKind', 'context', 'namespace', 'release', 'chartPath', 'valuesFile')) {
+    $value = $meta.$field
+    if ($null -eq $value -or $value -isnot [string]) {
+        $actualType = if ($null -eq $value) { '<null>' } else { $value.GetType().FullName }
+        Write-Error "Diff metadata field '$field' is not a scalar string (got $actualType). Sidecar may be corrupted or hand-edited; regenerate via Invoke-HelmDiff.ps1."
+        exit 4
+    }
+}
+
 if ($meta.artifactKind -ne 'helm-diff') {
     Write-Error "Diff metadata artifactKind is '$($meta.artifactKind)', expected 'helm-diff'. Wrong wrapper?"
     exit 4
