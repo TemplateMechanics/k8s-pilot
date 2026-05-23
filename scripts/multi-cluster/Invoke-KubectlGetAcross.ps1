@@ -1,0 +1,121 @@
+<#
+.SYNOPSIS
+    Read-only fan-out of `kubectl get <resource>` across matching clusters
+    (CLAUDE.md §3.5 Read).
+
+.DESCRIPTION
+    Read-only. Resolves clusters via the same selector + prod-exclusion
+    rules as Get-Clusters.ps1, then runs `kubectl get <Resource> -A`
+    against each cluster's context IN PARALLEL (PowerShell 7+
+    ForEach-Object -Parallel). Aggregates results into a single object
+    stream with a `cluster` column added so the output is grouping-friendly.
+
+    No mutations. There is intentionally no multi-cluster mutation wrapper
+    (CLAUDE.md §3.5): cluster-state mutations must be iterated one cluster
+    at a time via the per-tool wrappers.
+
+.PARAMETER Selector
+    Cluster registry selector (see Get-Clusters.ps1).
+
+.PARAMETER Resource
+    Kubernetes resource passed to `kubectl get` (e.g. 'pods', 'deployments').
+
+.PARAMETER Namespace
+    Optional namespace scope. Omit for `-A` (all namespaces).
+
+.PARAMETER MaxParallel
+    Maximum concurrent cluster queries. Default 8. Cap so kubeconfig /
+    API-server rate limiting doesn't get hammered.
+
+.PARAMETER RegistryPath
+    Override config/clusters.yaml.
+
+.PARAMETER IncludeProd
+    See Get-Clusters.ps1.
+
+.OUTPUTS
+    Array of [pscustomobject]@{ cluster; output; exitCode; stderr }.
+    Exit codes:
+      0  - every per-cluster kubectl returned 0
+      1  - at least one per-cluster kubectl failed (per-cluster code in
+           output objects)
+      2  - no clusters matched the selector
+      3  - kubectl binary not in PATH
+#>
+[CmdletBinding()]
+param(
+    [Parameter(Mandatory)] [string] $Selector,
+    [Parameter(Mandatory)] [string] $Resource,
+    [string] $Namespace,
+    [ValidateRange(1, 32)] [int] $MaxParallel = 8,
+    [string] $RegistryPath = 'config/clusters.yaml',
+    [switch] $IncludeProd
+)
+
+$ErrorActionPreference = 'Stop'
+$PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
+
+. "$PSScriptRoot/_lib/Registry.ps1"
+. "$PSScriptRoot/../_lib/Context.ps1"
+
+Assert-NonFlagArg -Value $Resource -Name '-Resource'
+if ($Namespace) { Assert-NonFlagArg -Value $Namespace -Name '-Namespace' }
+
+if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
+    Write-Error "kubectl not found in PATH."
+    exit 3
+}
+
+$clusters = Select-ClustersBySelector `
+    -Selector     $Selector `
+    -RegistryPath $RegistryPath `
+    -IncludeProd:$IncludeProd
+
+if ($clusters.Count -eq 0) {
+    Write-Warning "No clusters matched selector '$Selector'."
+    exit 2
+}
+
+Write-Information "Fanning kubectl get $Resource out to $($clusters.Count) cluster(s) ($MaxParallel concurrent)..." -InformationAction Continue
+
+$results = $clusters | ForEach-Object -ThrottleLimit $MaxParallel -Parallel {
+    $c = $_
+    $kubectlArgs = @('--context', $c.context, 'get', $using:Resource)
+    if ($using:Namespace) {
+        $kubectlArgs += @('-n', $using:Namespace)
+    } else {
+        $kubectlArgs += '-A'
+    }
+    if ($c.kubeconfig) {
+        $kubectlArgs = @('--kubeconfig', $c.kubeconfig) + $kubectlArgs
+    }
+
+    $errFile = [System.IO.Path]::GetTempFileName()
+    try {
+        $out = & kubectl @kubectlArgs 2>$errFile
+        $exit = $LASTEXITCODE
+        $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
+    }
+    finally {
+        Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
+    }
+
+    [pscustomobject]@{
+        cluster  = $c.name
+        context  = $c.context
+        tier     = $c.tier
+        output   = (@($out) -join "`n")
+        exitCode = $exit
+        stderr   = $err
+    }
+}
+
+# Print structured output.
+$results
+
+$anyFailed = @($results | Where-Object { $_.exitCode -ne 0 }).Count -gt 0
+if ($anyFailed) {
+    Write-Warning "At least one per-cluster kubectl failed; inspect the .exitCode and .stderr fields per result row."
+    exit 1
+}
+exit 0

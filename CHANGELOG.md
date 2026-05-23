@@ -43,6 +43,15 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `scripts/flux/Invoke-FluxSuspend.ps1`: metadata-only mutation per §3.6. Requires `-Kind` (validated against the flux CR set), `-Name`, `-Context`, `-Reason` (>=5 chars). Writes started+completed JSON entries to `.flux/audit/<contextSlug>/suspend.log` with outcome and exitCode.
 - `scripts/flux/Invoke-FluxResume.ps1`: matching resume wrapper with the same validation contract and audit log structure at `.flux/audit/<contextSlug>/resume.log`. Documents that the first post-resume reconcile may apply accumulated drift.
 
+- `config/clusters.yaml`: declarative multi-cluster registry (schemaVersion=1). Each entry has `name` (DNS-1123 label), `context` (kubectl context), optional `kubeconfig`, `tier` (dev/staging/prod), and free-form `labels`.
+- `config/clusters.schema.json`: JSON Schema for the registry. Pinned `schemaVersion: 1`.
+- `scripts/multi-cluster/_lib/Registry.ps1`: shared helpers — `Read-ClustersRegistry` (yq-based YAML parser), `ConvertFrom-ClusterSelector` (k8s-style label selector with `=`/`!=`), `Test-ClusterMatchesSelector`, `Select-ClustersBySelector` (with the prod-exclusion rule).
+- `scripts/multi-cluster/Get-Clusters.ps1`: read-only registry query honoring `tier=prod` exclusion unless `-IncludeProd` or `name=<cluster>` is passed.
+- `scripts/multi-cluster/Invoke-KubectlGetAcross.ps1`: parallel `kubectl get <Resource>` fan-out via `ForEach-Object -Parallel -ThrottleLimit`. Aggregates per-cluster results with `cluster`/`tier`/`output`/`exitCode`/`stderr` columns.
+- `scripts/multi-cluster/Invoke-HelmStatusAcross.ps1`: matching parallel fan-out for `helm status -n <ns> --kube-context <ctx>`.
+- `agents/multi-cluster.agent.md`: persona codifying the operational sequence (show matched clusters first; surface per-cluster failures by name; refuse multi-cluster mutations).
+- Per CLAUDE.md §3.5, there is intentionally NO `Invoke-*Across.ps1` mutation wrapper. Cross-cluster mutations must iterate one cluster at a time via the per-tool wrappers under `scripts/<tool>/`.
+
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
 - `agents/multi-cluster.agent.md` will land with the multi-cluster registry in PR 8.
