@@ -76,8 +76,8 @@ if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
 }
 
 $outDir = Join-Path (Join-Path $OutputDir $Namespace) $Release
-if (-not (Test-Path $outDir)) {
-    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+if (-not (Test-Path -LiteralPath $outDir)) {
+    New-Item -ItemType Directory -LiteralPath $outDir -Force | Out-Null
 }
 $outFile = Join-Path $outDir 'templated.yaml'
 
@@ -93,11 +93,11 @@ try {
         1>$outFile 2>$errFile
     $helmExit = $LASTEXITCODE
 
-    $stderrContent = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
+    $stderrContent = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
 
     if ($helmExit -ne 0) {
         # Clean up the potentially incomplete output file on failure.
-        Remove-Item -Path $outFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $outFile -Force -ErrorAction SilentlyContinue
         Write-Error "helm template failed for '$ChartPath' (exit $helmExit): $stderrContent"
         exit $helmExit
     }
@@ -106,9 +106,9 @@ try {
     }
 }
 finally {
-    Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
 }
 
 Write-Information "Rendered $ChartPath -> $outFile" -InformationAction Continue
-Write-Output (Resolve-Path $outFile).Path
+Write-Output (Resolve-Path -LiteralPath $outFile).Path
 exit 0

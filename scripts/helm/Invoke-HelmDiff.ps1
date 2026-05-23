@@ -101,8 +101,8 @@ if ($helmPluginExit -ne 0 -or 'diff' -notin $pluginNames) {
 }
 
 $outDir = Join-Path (Join-Path $OutputDir $Namespace) $Release
-if (-not (Test-Path $outDir)) {
-    New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+if (-not (Test-Path -LiteralPath $outDir)) {
+    New-Item -ItemType Directory -LiteralPath $outDir -Force | Out-Null
 }
 # Use a filesystem-safe slug for the filename; the true context name is
 # preserved inside the metadata sidecar so Upgrade still verifies it.
@@ -134,8 +134,8 @@ if ($diffExit -ne 0 -and $diffExit -ne 2) {
 # disk-full / permission failure on either follows the documented exit-1
 # contract and cleans up any partial files before exiting.
 try {
-    $diffOutput | Set-Content -Path $diffFile -Encoding utf8
-    $valuesSha = (Get-FileHash -Algorithm SHA256 -Path $ValuesFile -ErrorAction Stop).Hash
+    $diffOutput | Set-Content -LiteralPath $diffFile -Encoding utf8
+    $valuesSha = (Get-FileHash -Algorithm SHA256 -LiteralPath $ValuesFile -ErrorAction Stop).Hash
     $chartSha  = Get-PathContentHash -Path $ChartPath
     $meta = [pscustomobject]@{
         schemaVersion    = 3
@@ -150,12 +150,12 @@ try {
         diffExitCode     = $diffExit
         generatedAt      = (Get-Date -AsUTC).ToString('o')
     }
-    $meta | ConvertTo-Json -Depth 5 | Set-Content -Path $metaFile -Encoding utf8
+    $meta | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $metaFile -Encoding utf8
 }
 catch {
     # Clean up partial artifacts so a retry starts clean.
-    Remove-Item -Path $metaFile -Force -ErrorAction SilentlyContinue
-    Remove-Item -Path $diffFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $metaFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $diffFile -Force -ErrorAction SilentlyContinue
     Write-Error "Failed to write diff metadata for release '$Release': $($_.Exception.Message)"
     exit 1
 }
@@ -167,5 +167,5 @@ else {
     Write-Information "Diff written to $diffFile (meta: $metaFile). Review before upgrade." -InformationAction Continue
 }
 
-Write-Output (Resolve-Path $diffFile).Path
+Write-Output (Resolve-Path -LiteralPath $diffFile).Path
 exit $diffExit

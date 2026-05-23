@@ -101,8 +101,8 @@ if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
 # goes to a temp file so any helm warnings are not embedded in artifacts.
 $contextSlug = ConvertTo-SafeFilename -Value $Context
 $auditDir = Join-Path (Join-Path (Join-Path '.helm' $contextSlug) $Namespace) $Release
-if (-not (Test-Path $auditDir)) {
-    New-Item -ItemType Directory -Path $auditDir -Force | Out-Null
+if (-not (Test-Path -LiteralPath $auditDir)) {
+    New-Item -ItemType Directory -LiteralPath $auditDir -Force | Out-Null
 }
 $timestamp = Get-Date -AsUTC -Format 'yyyyMMdd-HHmmssfff'
 $currentFile = Join-Path $auditDir "$timestamp-current.yaml"
@@ -115,9 +115,9 @@ try {
         --namespace $Namespace `
         1>$currentFile 2>$errFile
     $currentExit = $LASTEXITCODE
-    $currentStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
+    $currentStderr = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
     if ($currentExit -ne 0) {
-        Remove-Item -Path $currentFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $currentFile -Force -ErrorAction SilentlyContinue
         Write-Error "helm get manifest (current) failed (exit $currentExit): $currentStderr"
         exit $currentExit
     }
@@ -125,16 +125,16 @@ try {
         Write-Warning "helm get manifest (current) produced stderr (not embedded in artifact):`n$currentStderr"
     }
 
-    Clear-Content -Path $errFile -ErrorAction SilentlyContinue
+    Clear-Content -LiteralPath $errFile -ErrorAction SilentlyContinue
     & helm get manifest $Release `
         --kube-context $Context `
         --namespace $Namespace `
         --revision $Revision `
         1>$targetFile 2>$errFile
     $targetExit = $LASTEXITCODE
-    $targetStderr = Get-Content -Path $errFile -Raw -ErrorAction SilentlyContinue
+    $targetStderr = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
     if ($targetExit -ne 0) {
-        Remove-Item -Path $targetFile -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $targetFile -Force -ErrorAction SilentlyContinue
         Write-Error "helm get manifest --revision $Revision failed (does that revision exist? Check 'helm history $Release -n $Namespace --kube-context $Context'): $targetStderr"
         exit $targetExit
     }
@@ -143,7 +143,7 @@ try {
     }
 }
 finally {
-    Remove-Item -Path $errFile -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
 }
 
 # (Audit dir + filenames are now set BEFORE the helm get manifest calls
@@ -172,8 +172,8 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
 }
 else {
     Write-Warning "git not on PATH — falling back to Compare-Object (set-based; moves/duplicates may misrepresent). Install git for a real positional diff."
-    $currentLines = Get-Content -Path $currentFile -Encoding utf8
-    $targetLines  = Get-Content -Path $targetFile  -Encoding utf8
+    $currentLines = Get-Content -LiteralPath $currentFile -Encoding utf8
+    $targetLines  = Get-Content -LiteralPath $targetFile  -Encoding utf8
     $diff = Compare-Object -ReferenceObject $currentLines -DifferenceObject $targetLines `
         -CaseSensitive -IncludeEqual:$false
     if (-not $diff) {
@@ -215,7 +215,7 @@ $startedEntry = [pscustomobject]@{
     currentFile = $currentFile
     targetFile  = $targetFile
 } | ConvertTo-Json -Compress
-Add-Content -Path $logFile -Value $startedEntry -Encoding utf8
+Add-Content -LiteralPath $logFile -Value $startedEntry -Encoding utf8
 
 Write-Information "Rolling back '$Release' to revision $Revision..." -InformationAction Continue
 & helm rollback $Release $Revision `
@@ -235,7 +235,7 @@ $completedEntry = [pscustomobject]@{
     release     = $Release
     revision    = $Revision
 } | ConvertTo-Json -Compress
-Add-Content -Path $logFile -Value $completedEntry -Encoding utf8
+Add-Content -LiteralPath $logFile -Value $completedEntry -Encoding utf8
 
 if ($rollbackExit -ne 0) {
     Write-Error "helm rollback failed (exit $rollbackExit). Audit log: $logFile"
