@@ -65,8 +65,9 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
-Assert-NonFlagArg      -Value $Release   -Name '-Release'
-Assert-NonFlagArg      -Value $ChartPath -Name '-ChartPath'
+Assert-NonFlagArg      -Value $Release    -Name '-Release'
+Assert-NonFlagArg      -Value $Namespace  -Name '-Namespace'
+Assert-NonFlagArg      -Value $ChartPath  -Name '-ChartPath'
 Assert-NonFlagArg      -Value $ValuesFile -Name '-ValuesFile'
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {

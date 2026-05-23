@@ -73,6 +73,8 @@ Assert-SafePathSegment -Value $Namespace -Name '-Namespace'
 Assert-SafePathSegment -Value $Release   -Name '-Release'
 Assert-SafePathSegment -Value $Context   -Name '-Context'
 Assert-NonFlagArg      -Value $Release   -Name '-Release'
+Assert-NonFlagArg      -Value $Namespace -Name '-Namespace'
+Assert-NonFlagArg      -Value $Context   -Name '-Context'
 Assert-ContextSafety -Context $Context -OverrideAmbientContext:$OverrideAmbientContext
 
 if (-not (Get-Command helm -ErrorAction SilentlyContinue)) {
