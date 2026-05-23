@@ -56,7 +56,10 @@ function Read-ClustersRegistry {
         # mikefarah/yq v4: `eval` (alias `e`) takes an expression first
         # and one or more file paths after. Pass '.' as the identity
         # expression so the registry path is unambiguously a file argument.
-        $json = & yq -o=json eval '.' $RegistryPath 2>$errFile
+        # Coerce multi-line output to a single string so ConvertFrom-Json
+        # parses the whole document (piping a string[] would parse
+        # line-by-line and fail on multi-line JSON).
+        $json = (& yq -o=json eval '.' $RegistryPath 2>$errFile | Out-String)
         if ($LASTEXITCODE -ne 0) {
             $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
             throw "yq failed to parse '$RegistryPath' (exit $LASTEXITCODE): $err"
@@ -76,7 +79,18 @@ function Read-ClustersRegistry {
     if ($doc.schemaVersion -ne 1) {
         throw "Registry schemaVersion is '$($doc.schemaVersion)', expected 1."
     }
+    # The schema requires a top-level `clusters` field. An entirely
+    # missing field almost certainly indicates a malformed YAML (or a
+    # YAML that was lost in a merge); silently returning [] would hide
+    # the problem and let selectors match nothing without warning.
+    if (-not $doc.PSObject.Properties.Match('clusters')) {
+        throw "Registry '$RegistryPath' is missing the required top-level 'clusters' field. See config/clusters.schema.json."
+    }
     if ($null -eq $doc.clusters) {
+        # Field is present but null (e.g. `clusters: ~` or `clusters: []`
+        # collapses to null in some yq paths). Treat empty list as
+        # legitimate but log so empty fan-outs aren't a complete surprise.
+        Write-Warning "Registry '$RegistryPath' has zero clusters. Fan-out wrappers will match nothing."
         return @()
     }
 
