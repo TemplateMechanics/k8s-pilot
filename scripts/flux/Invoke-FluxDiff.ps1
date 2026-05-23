@@ -81,13 +81,17 @@ try {
     $diffExit = $LASTEXITCODE
     $diffStderr = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
 
-    # flux diff convention: exit 0 = no changes, non-zero = changes present
-    # OR error. Distinguish by inspecting stderr for known error markers;
-    # if stderr is empty or only contains informational text, the non-zero
-    # exit is treated as "diff present" and we fall through to write the
-    # artifact. If stderr matches the error regex, propagate the original
-    # exit code so callers can branch.
-    $isError = ($diffExit -ne 0) -and ($diffStderr -match '(?i)(error|failed|panic|cannot)')
+    # flux diff kustomization exit semantics (observed):
+    #   0      = no diff
+    #   1      = diff detected (diff goes to stdout)
+    #   >1     = error (message on stderr)
+    # Treat any exit > 1 as an unambiguous error. For exit == 1 we ALSO
+    # require stdout to contain visible diff markers ('@@', '+', '-', or
+    # 'ID:') to defend against a future flux release that conflates
+    # 'diff' and 'error' both as exit 1. If exit==1 but stdout has no diff
+    # markers, treat as error and surface stderr for diagnosis.
+    $hasDiffMarkers = ($diffOutput | Out-String) -match '(?m)^[+\-@]|^\s*ID:'
+    $isError = ($diffExit -gt 1) -or (($diffExit -eq 1) -and -not $hasDiffMarkers)
     if ($isError) {
         $combined = @(@($diffOutput) -join "`n"; $diffStderr) -join "`n--- stderr ---`n"
         Write-Error "flux diff kustomization failed (exit $diffExit) for '$Kustomization': $combined"

@@ -143,7 +143,13 @@ if (-not $isIntegerScalar) {
     exit 4
 }
 if ($diffExitVal -eq 0) {
-    Write-Error "Diff metadata records diffExitCode=0 (no changes). Refusing to reconcile against a clean diff. If you need to force a reconcile (no diff to apply), use 'flux reconcile' directly and accept that nothing was reviewed."
+    # CLAUDE.md R1/R2 forbid bypassing the wrappers, so we do NOT suggest
+    # "just run flux reconcile directly" — that would defeat the contract.
+    # Instead: if there's something the operator wants to apply, they need
+    # to make the change in the source and rerun Invoke-FluxDiff.ps1 so the
+    # next sidecar records the diff. A clean-diff reconcile is operational
+    # noise that this wrapper deliberately refuses.
+    Write-Error "Diff metadata records diffExitCode=0 (no changes). Refusing to reconcile against a clean diff. Make the change you want to apply in the source path '$($meta.path)', then re-run Invoke-FluxDiff.ps1 to produce a sidecar that records the new diff before reconciling."
     exit 4
 }
 
