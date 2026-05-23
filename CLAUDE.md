@@ -84,7 +84,7 @@ Argo CD has its own session/server state independent of the kubectl context (the
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
 | Build | `Invoke-FluxBuild.ps1` | `-Kustomization`, `-Path` | Rendered output to `.flux/<kustomization>.yaml` |
-| Diff | `Invoke-FluxDiff.ps1` | `-Kustomization`, `-Path`, `-Context` | Diff artifact at `.flux/<kustomization>/<context>.diff` |
+| Diff | `Invoke-FluxDiff.ps1` | `-Kustomization`, `-Path`, `-Context` | Diff artifact at `.flux/<kustomization>/<contextSlug>.diff` where `<contextSlug>` is `ConvertTo-SafeFilename` of `-Context` (handles `:` in EKS ARN contexts and `/`). True context name preserved in sidecar metadata. |
 | Reconcile | `Invoke-FluxReconcile.ps1` | `-Kustomization`, `-DiffFile`, `-Context` | Triggers reconciliation; requires diff artifact |
 | Suspend | `Invoke-FluxSuspend.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: true` on the named CR |
 | Resume | `Invoke-FluxResume.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: false`. After resume the first reconcile may apply accumulated drift — diff first if suspension was long. |
