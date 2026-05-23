@@ -28,8 +28,11 @@
       0   - no diff
       1   - wrapper-side metadata-write failure (partial artifacts cleaned up)
       2   - diff present (translated from flux's native exit 1 + stdout
-            containing diff markers, for cross-family consistency with
-            helm-diff / kubectl-diff)
+            containing diff markers, matching the convention used by
+            Invoke-HelmDiff and Invoke-ArgocdAppDiff. Note that
+            Invoke-KubectlDiff intentionally preserves kubectl's native
+            exit 1 for "diff present" so its callers can pipe through
+            existing kubectl-diff tooling unchanged.)
       3   - flux binary not in PATH
       4   - `flux diff` returned exit 1 but stdout had no diff markers
             (treated as an error to avoid silently writing a non-diff

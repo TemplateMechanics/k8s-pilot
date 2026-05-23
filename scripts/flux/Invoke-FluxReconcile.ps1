@@ -113,7 +113,12 @@ if ($meta.kustomization -cne $Kustomization) {
     exit 4
 }
 
-# Cross-check the diff artifact path layout: .flux/<kustomization>/<contextSlug>.diff
+# Cross-check the diff artifact path layout. The default layout produced
+# by Invoke-FluxDiff is `.flux/<kustomization>/<contextSlug>.diff`, but
+# callers can override -OutputDir there; this wrapper does not assume any
+# specific prefix and only verifies that (a) the immediate parent dir's
+# leaf matches the kustomization, and (b) the artifact's filename leaf
+# matches `<contextSlug>.diff`.
 $artifactParent     = Split-Path -LiteralPath $DiffFile       -Parent
 $artifactKustomDir  = Split-Path -LiteralPath $artifactParent -Leaf
 if ($meta.kustomization -cne $artifactKustomDir) {
