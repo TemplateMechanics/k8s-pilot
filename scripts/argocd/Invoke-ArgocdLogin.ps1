@@ -11,10 +11,13 @@
 
     The argocd CLI session is stored in the user's standard config location
     (`%USERPROFILE%\.config\argocd\config` on Windows, `~/.config/argocd/config`
-    on Linux/macOS). The repo-local `.argocd/` directory under the workspace
-    is used by the diff/sync wrappers to store ARTIFACTS (per-server diff
-    files + metadata), not the CLI session itself; relocating the CLI
-    session reliably across platforms is out of scope for this wrapper.
+    on Linux/macOS). CLAUDE.md §3.3 originally described a repo-local
+    `.argocd/` session dir; that has been refined in CLAUDE.md to clarify
+    that `.argocd/` holds ARTIFACTS only (diff files + metadata) and that
+    the safety guarantee is per-call via the mandatory `-Server <host>`
+    argument on every diff/sync/wait wrapper rather than via a relocated
+    session. Cross-platform session relocation requires non-portable
+    env-var hacks and is intentionally out of scope.
 
 .PARAMETER Server
     Argo CD API server host (e.g. `argocd.example.com`). Used as

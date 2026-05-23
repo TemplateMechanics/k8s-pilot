@@ -32,6 +32,7 @@
       1   - wrapper-side metadata-write failure (partial artifacts cleaned up)
       2   - diff present (argocd native 1, translated here to 2)
       3   - argocd binary not in PATH
+      5   - input validation failure (e.g. -Revision = HEAD)
       other - propagated from `argocd app diff` (treated as error)
 #>
 [CmdletBinding()]
@@ -60,7 +61,9 @@ Assert-NonFlagArg      -Value $Server   -Name '-Server'
 # pointer. Catches HEAD, head, Head, etc.
 if ($Revision.Trim().ToLowerInvariant() -eq 'head') {
     Write-Error "-Revision 'HEAD' is rejected. Pin to an immutable commit SHA or tag (Argo CD audit trail requires immutable revisions)."
-    exit 2
+    # Use exit 5 (not 2) so this validation failure does not collide with
+    # exit 2 = 'diff present' in this wrapper's exit-code contract.
+    exit 5
 }
 
 if (-not (Get-Command argocd -ErrorAction SilentlyContinue)) {

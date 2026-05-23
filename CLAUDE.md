@@ -70,14 +70,14 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 
 ### 3.3 `argocd`  (scripts/argocd/, planned PR 6)
 
-Argo CD has its own session/server state independent of the kubectl context (the `argocd` CLI stores its login in `~/.config/argocd/config` by default, which is mutable global state similar to kubeconfig). To prevent accidentally targeting the wrong Argo CD instance, all wrappers below take a mandatory `-Server <host>` argument, and the wrappers use a repo-local config dir (`.argocd/`) instead of `~/.config/argocd/` so sessions are scoped to the repo. Each wrapper asserts that the active logged-in server matches the `-Server` argument and refuses to run otherwise.
+Argo CD has its own session/server state independent of the kubectl context (the `argocd` CLI stores its login in `~/.config/argocd/config` by default, which is mutable global state similar to kubeconfig). To prevent accidentally targeting the wrong Argo CD instance, all wrappers below take a mandatory `-Server <host>` argument and pass it on every argocd invocation, so the safety guarantee is per-call. The repo-local `.argocd/` directory holds diff and audit artifacts only; the CLI session itself remains in the user's standard config dir (cross-platform session relocation requires non-portable env-var hacks and is intentionally not implemented). The pairing safety comes from the metadata sidecar's `server` field cross-checked against the `-Server` argument on every Sync call.
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
 | Login | `Invoke-ArgocdLogin.ps1` | `-Server` | Stores session in the repo-local `.argocd/` (gitignored) |
 | App diff | `Invoke-ArgocdAppDiff.ps1` | `-App`, `-Revision`, `-Server` | Diff artifact at `.argocd/<server>/<app>/<revision>.diff` |
 | App sync | `Invoke-ArgocdAppSync.ps1` | `-App`, `-DiffFile`, `-Revision`, `-Server` | Mutation; requires diff artifact. Asserts the diff artifact was produced against the same `-Server`. |
-| App wait | `Invoke-ArgocdAppWait.ps1` | `-App`, `-Timeout`, `-Server` | Blocks until Healthy + Synced on the named server |
+| App wait | `Invoke-ArgocdAppWait.ps1` | `-App`, `-TimeoutSeconds`, `-Server` | Blocks until Healthy + Synced on the named server |
 
 ### 3.4 `flux`  (scripts/flux/, planned PR 7)
 

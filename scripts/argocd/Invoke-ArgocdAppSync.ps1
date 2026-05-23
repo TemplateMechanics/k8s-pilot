@@ -30,9 +30,11 @@
     argocd's stdout. Exit codes:
       0   - sync succeeded
       3   - argocd binary not in PATH
-      4   - metadata validation failure
+      4   - sidecar metadata validation failure
+      5   - input validation failure (e.g. -Revision = HEAD)
       other - propagated from `argocd app sync`
-    Preflight failures terminate with PS default exit 1.
+    Assert-NonFlagArg / parameter-validation throws terminate with
+    PowerShell's default exit 1.
 #>
 [CmdletBinding()]
 param(
@@ -60,7 +62,9 @@ Assert-NonFlagArg -Value $Server   -Name '-Server'
 # -Revision HEAD short-circuits before any cluster mutation.
 if ($Revision.Trim().ToLowerInvariant() -eq 'head') {
     Write-Error "-Revision 'HEAD' is rejected. Pin to an immutable commit SHA or tag."
-    exit 2
+    # exit 5 = input validation failure (kept distinct from 4 = sidecar
+    # validation and from any helm/argocd propagated codes).
+    exit 5
 }
 
 if (-not (Get-Command argocd -ErrorAction SilentlyContinue)) {
