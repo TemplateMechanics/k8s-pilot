@@ -137,11 +137,11 @@ if ($meta.PSObject.Properties.Name -notcontains 'diffExitCode' -or
     Write-Error "Diff metadata diffExitCode must be the integer 2 (helm-diff --detailed-exitcode 'changes present'), got '$diffExitVal' (type $(if ($null -eq $diffExitVal) { '<null>' } else { $diffExitVal.GetType().Name })). Refusing to upgrade against an empty / missing / corrupted diff. Regenerate via Invoke-HelmDiff.ps1 after editing the change you want to apply."
     exit 4
 }
-if ($meta.context -ne $Context) {
+if ($meta.context -cne $Context) {
     Write-Error "Diff metadata context '$($meta.context)' does not match -Context '$Context'. Refusing to upgrade against a different cluster."
     exit 4
 }
-if ($meta.namespace -ne $Namespace) {
+if ($meta.namespace -cne $Namespace) {
     Write-Error "Diff metadata namespace '$($meta.namespace)' does not match -Namespace '$Namespace'. Refusing to upgrade against a different namespace."
     exit 4
 }
@@ -161,11 +161,11 @@ if (-not (Test-Path -LiteralPath $meta.valuesFile)) {
 # actually reviewed.
 $artifactReleaseDir   = Split-Path -Path $DiffFile -Parent | Split-Path -Leaf
 $artifactNamespaceDir = Split-Path -Path $DiffFile -Parent | Split-Path -Parent | Split-Path -Leaf
-if ($meta.release -ne $artifactReleaseDir) {
+if ($meta.release -cne $artifactReleaseDir) {
     Write-Error "Diff metadata release '$($meta.release)' does not match the release directory '$artifactReleaseDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
     exit 4
 }
-if ($meta.namespace -ne $artifactNamespaceDir) {
+if ($meta.namespace -cne $artifactNamespaceDir) {
     Write-Error "Diff metadata namespace '$($meta.namespace)' does not match the namespace directory '$artifactNamespaceDir' in the artifact path '$DiffFile'. Sidecar may be hand-edited or moved."
     exit 4
 }

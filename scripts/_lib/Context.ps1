@@ -223,7 +223,16 @@ function ConvertTo-SafeFilename {
     $hasMixedCase = $Value -cne $caseFolded
     $normalized = ($slug -cne $Value) -or $hasMixedCase -or ($slug.Length -gt 80)
     if ($normalized) {
-        $hash = [System.Security.Cryptography.SHA1]::HashData([System.Text.Encoding]::UTF8.GetBytes($Value))
+        # SHA1::HashData(byte[]) is .NET 5+; PS 7.0 ships with .NET Core 3.1
+        # which only has the instance API. Use Create()/ComputeHash for
+        # backwards compatibility with the README-stated minimum PS 7.0.
+        $sha1 = [System.Security.Cryptography.SHA1]::Create()
+        try {
+            $hash = $sha1.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($Value))
+        }
+        finally {
+            $sha1.Dispose()
+        }
         $shortHash = ([System.BitConverter]::ToString($hash) -replace '-', '').Substring(0, 8).ToLowerInvariant()
         # Hard cap at 80 chars TOTAL: <=71 chars of slug + '_' + 8-char hash.
         $base = if ($slug.Length -gt 71) { $slug.Substring(0, 71) } else { $slug }
