@@ -132,6 +132,8 @@ function Read-ClustersRegistry {
         throw "Registry contains duplicate cluster name(s): $($dups -join ', '). Names must be unique."
     }
 
+    # foreach (...) yields $null if the input is empty; filter to keep
+    # the result a clean array of cluster objects only.
     $result = foreach ($c in $doc.clusters) {
         $labels = @{}
         if ($c.labels) {
@@ -154,7 +156,9 @@ function Read-ClustersRegistry {
             labels     = $labels
         }
     }
-    return @($result)
+    # Force array context AND drop any $null elements (foreach yields a
+    # single $null when the source is empty).
+    return @($result | Where-Object { $null -ne $_ })
 }
 
 function ConvertFrom-ClusterSelector {

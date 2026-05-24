@@ -5,10 +5,17 @@
 
 .DESCRIPTION
     Read-only. Resolves clusters via the same selector + prod-exclusion
-    rules as Get-Clusters.ps1, then runs `kubectl get <Resource> -A`
+    rules as Get-Clusters.ps1, then runs `kubectl get <Resource>`
     against each cluster's context IN PARALLEL (PowerShell 7+
-    ForEach-Object -Parallel). Aggregates results into a single object
-    stream with a `cluster` column added so the output is grouping-friendly.
+    ForEach-Object -Parallel). Scope semantics:
+      - No -Namespace and no -AllNamespaces  -> kubectl default
+        (cluster-default namespace for namespaced kinds; cluster-scope
+        for cluster-scoped kinds like nodes/namespaces/crds).
+      - -Namespace <ns>                       -> `-n <ns>`.
+      - -AllNamespaces                        -> `-A` (rejected by
+        kubectl for cluster-scoped kinds).
+    Aggregates per-cluster results into a single object stream with a
+    `cluster` column for grouping.
 
     No mutations. There is intentionally no multi-cluster mutation wrapper
     (CLAUDE.md §3.5): cluster-state mutations must be iterated one cluster

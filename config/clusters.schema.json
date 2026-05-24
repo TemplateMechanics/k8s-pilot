@@ -37,7 +37,8 @@
         },
         "kubeconfig": {
           "type": "string",
-          "description": "Optional path to a non-default kubeconfig file."
+          "minLength": 1,
+          "description": "Optional path to a non-default kubeconfig file. If specified, must be a non-empty string; omit the field entirely to use the default kubeconfig (rather than supplying an empty string, which the wrappers would treat as 'absent' but the schema previously allowed)."
         },
         "tier": {
           "type": "string",
