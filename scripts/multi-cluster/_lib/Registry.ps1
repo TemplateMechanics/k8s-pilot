@@ -71,7 +71,10 @@ function Read-ClustersRegistry {
         # Coerce multi-line output to a single string so ConvertFrom-Json
         # parses the whole document (piping a string[] would parse
         # line-by-line and fail on multi-line JSON).
-        $json = (& yq -o=json eval '.' $RegistryPath 2>$errFile | Out-String)
+        # The `--` terminates option parsing so that even a registry
+        # path starting with '-' is unambiguously a file argument. Belt
+        # AND suspenders with the StartsWith('-') check above.
+        $json = (& yq -o=json eval '.' -- $RegistryPath 2>$errFile | Out-String)
         if ($LASTEXITCODE -ne 0) {
             $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
             throw "yq failed to parse '$RegistryPath' (exit $LASTEXITCODE): $err"
@@ -111,12 +114,22 @@ function Read-ClustersRegistry {
     # Validate required fields FIRST so a missing 'name' produces a
     # clear "missing required field" error rather than colliding with
     # other entries in the duplicate-name check below.
+    $dns1123 = '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
     foreach ($c in $doc.clusters) {
         foreach ($field in @('name', 'context', 'tier')) {
             $v = $c.$field
             if ($null -eq $v -or ([string]$v).Trim() -eq '') {
                 throw "Registry entry is missing required field '$field' (value '$v'). See config/clusters.schema.json."
             }
+        }
+        # Enforce the same DNS-1123 pattern the schema declares so the
+        # name is safe to use as a selector value and as part of
+        # artifact paths downstream.
+        if ([string]$c.name -cnotmatch $dns1123) {
+            throw "Registry entry name '$($c.name)' is not a valid DNS-1123 label (lower-case alphanumerics and '-', must start/end with alphanumeric). See config/clusters.schema.json."
+        }
+        if ([string]$c.name.Length -gt 80) {
+            throw "Registry entry name '$($c.name)' exceeds the 80-char cap from config/clusters.schema.json."
         }
         if ($c.tier -cnotin $allowedTiers) {
             throw "Registry entry '$($c.name)' has tier '$($c.tier)'; allowed: $($allowedTiers -join ', ')."
@@ -139,13 +152,18 @@ function Read-ClustersRegistry {
         if ($c.labels) {
             foreach ($prop in $c.labels.PSObject.Properties) {
                 $val = $prop.Value
-                # Labels must be scalar strings (or string-coercible
-                # primitives). Reject arrays/objects so selectors don't
-                # silently match on a stringified hashtable.
-                if ($val -is [array] -or $val -is [System.Collections.IDictionary] -or $val -is [pscustomobject]) {
-                    throw "Registry entry '$($c.name)' label '$($prop.Name)' must be a scalar string; got $($val.GetType().FullName)."
+                # Match the JSON schema: labels are non-empty STRINGS.
+                # Reject non-string scalars (bool/number) and non-scalar
+                # types (array/object). YAML 'region: 5' should fail in
+                # the parser exactly like a schema validator would, so
+                # editors/CI and runtime agree on what's valid.
+                if ($val -isnot [string]) {
+                    throw "Registry entry '$($c.name)' label '$($prop.Name)' must be a string (config/clusters.schema.json requires strings); got $($val.GetType().FullName). Quote the value in YAML if it would otherwise parse as number/bool."
                 }
-                $labels[$prop.Name] = [string]$val
+                if ([string]::IsNullOrEmpty($val)) {
+                    throw "Registry entry '$($c.name)' label '$($prop.Name)' must be non-empty."
+                }
+                $labels[$prop.Name] = $val
             }
         }
         [pscustomobject]@{
