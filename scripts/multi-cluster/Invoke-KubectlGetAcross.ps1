@@ -21,7 +21,17 @@
     Kubernetes resource passed to `kubectl get` (e.g. 'pods', 'deployments').
 
 .PARAMETER Namespace
-    Optional namespace scope. Omit for `-A` (all namespaces).
+    Optional namespace scope (passed as `-n <namespace>`). Omit for the
+    cluster default scope — note that this means namespaced resources
+    will only show the kubectl default (usually `default`); pass
+    `-AllNamespaces` to explicitly fan out across all namespaces for
+    namespaced kinds.
+
+.PARAMETER AllNamespaces
+    Pass `-A` / `--all-namespaces` to kubectl. Only valid for namespaced
+    resources; kubectl rejects this for cluster-scoped kinds (nodes,
+    namespaces, clusterroles, crds, ...). Mutually exclusive with
+    -Namespace.
 
 .PARAMETER MaxParallel
     Maximum concurrent cluster queries. Default 8. Cap so kubeconfig /
@@ -50,6 +60,7 @@ param(
     [Parameter(Mandatory)] [string] $Selector,
     [Parameter(Mandatory)] [string] $Resource,
     [string] $Namespace,
+    [switch] $AllNamespaces,
     [ValidateRange(1, 32)] [int] $MaxParallel = 8,
     [string] $RegistryPath = 'config/clusters.yaml',
     [switch] $IncludeProd
@@ -63,6 +74,10 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 Assert-NonFlagArg -Value $Resource -Name '-Resource'
 if ($Namespace) { Assert-NonFlagArg -Value $Namespace -Name '-Namespace' }
+if ($Namespace -and $AllNamespaces) {
+    Write-Error "-Namespace and -AllNamespaces are mutually exclusive."
+    exit 1
+}
 
 if (-not (Get-Command kubectl -ErrorAction SilentlyContinue)) {
     Write-Error "kubectl not found in PATH."
@@ -102,36 +117,50 @@ Write-Information "Fanning kubectl get $Resource out to $($clusters.Count) clust
 
 $results = $clusters | ForEach-Object -ThrottleLimit $MaxParallel -Parallel {
     $c = $_
-    $kubectlArgs = @('--context', $c.context, 'get', $using:Resource)
-    if ($using:Namespace) {
-        $kubectlArgs += @('-n', $using:Namespace)
-    }
-    # If -Namespace was omitted, do NOT add -A unconditionally: that
-    # would fail for cluster-scoped resources (nodes, namespaces,
-    # clusterroles, crds...). Let kubectl pick the right scope; the
-    # operator can opt into all-namespace listing by passing
-    # -Namespace 'all' explicitly via the per-cluster shell if needed.
-    if ($c.kubeconfig) {
-        $kubectlArgs = @('--kubeconfig', $c.kubeconfig) + $kubectlArgs
-    }
-
-    $errFile = [System.IO.Path]::GetTempFileName()
+    # Always wrap in try/catch + finally so an unexpected exception
+    # inside the parallel block still emits a structured result row
+    # for this cluster (exitCode=-1, stderr=exception message). Without
+    # this the cluster would be silently missing from the result set.
     try {
-        $out = & kubectl @kubectlArgs 2>$errFile
-        $exit = $LASTEXITCODE
-        $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
-    }
-    finally {
-        Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
-    }
+        $kubectlArgs = @('--context', $c.context, 'get', $using:Resource)
+        if ($using:Namespace) {
+            $kubectlArgs += @('-n', $using:Namespace)
+        }
+        elseif ($using:AllNamespaces) {
+            $kubectlArgs += '-A'
+        }
+        if ($c.kubeconfig) {
+            $kubectlArgs = @('--kubeconfig', $c.kubeconfig) + $kubectlArgs
+        }
 
-    [pscustomobject]@{
-        cluster  = $c.name
-        context  = $c.context
-        tier     = $c.tier
-        output   = (@($out) -join "`n")
-        exitCode = $exit
-        stderr   = $err
+        $errFile = [System.IO.Path]::GetTempFileName()
+        try {
+            $out = & kubectl @kubectlArgs 2>$errFile
+            $exit = $LASTEXITCODE
+            $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
+        }
+        finally {
+            Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
+        }
+
+        [pscustomobject]@{
+            cluster  = $c.name
+            context  = $c.context
+            tier     = $c.tier
+            output   = (@($out) -join "`n")
+            exitCode = $exit
+            stderr   = $err
+        }
+    }
+    catch {
+        [pscustomobject]@{
+            cluster  = $c.name
+            context  = $c.context
+            tier     = $c.tier
+            output   = ''
+            exitCode = -1
+            stderr   = "Wrapper exception: $($_.Exception.Message)"
+        }
     }
 }
 

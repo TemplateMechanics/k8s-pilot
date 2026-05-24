@@ -90,28 +90,45 @@ Write-Information "Fanning helm status '$Release' (-n $Namespace) out to $($clus
 
 $results = $clusters | ForEach-Object -ThrottleLimit $MaxParallel -Parallel {
     $c = $_
-    $helmArgs = @('status', $using:Release, '-n', $using:Namespace, '--kube-context', $c.context)
-    if ($c.kubeconfig) {
-        $helmArgs += @('--kubeconfig', $c.kubeconfig)
-    }
-    $errFile = [System.IO.Path]::GetTempFileName()
     try {
-        $out = & helm @helmArgs 2>$errFile
-        $exit = $LASTEXITCODE
-        $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
+        $helmArgs = @('status', $using:Release, '-n', $using:Namespace, '--kube-context', $c.context)
+        if ($c.kubeconfig) {
+            $helmArgs += @('--kubeconfig', $c.kubeconfig)
+        }
+        $errFile = [System.IO.Path]::GetTempFileName()
+        try {
+            $out = & helm @helmArgs 2>$errFile
+            $exit = $LASTEXITCODE
+            $err = Get-Content -LiteralPath $errFile -Raw -ErrorAction SilentlyContinue
+        }
+        finally {
+            Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
+        }
+        [pscustomobject]@{
+            cluster   = $c.name
+            context   = $c.context
+            tier      = $c.tier
+            release   = $using:Release
+            namespace = $using:Namespace
+            output    = (@($out) -join "`n")
+            exitCode  = $exit
+            stderr    = $err
+        }
     }
-    finally {
-        Remove-Item -LiteralPath $errFile -Force -ErrorAction SilentlyContinue
-    }
-    [pscustomobject]@{
-        cluster   = $c.name
-        context   = $c.context
-        tier      = $c.tier
-        release   = $using:Release
-        namespace = $using:Namespace
-        output    = (@($out) -join "`n")
-        exitCode  = $exit
-        stderr    = $err
+    catch {
+        # Always emit a row, even on exception, so the per-cluster
+        # failure check downstream sees the failure instead of a
+        # silently-missing row.
+        [pscustomobject]@{
+            cluster   = $c.name
+            context   = $c.context
+            tier      = $c.tier
+            release   = $using:Release
+            namespace = $using:Namespace
+            output    = ''
+            exitCode  = -1
+            stderr    = "Wrapper exception: $($_.Exception.Message)"
+        }
     }
 }
 

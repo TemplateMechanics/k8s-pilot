@@ -107,17 +107,11 @@ function Read-ClustersRegistry {
     }
 
     $allowedTiers = @('dev', 'staging', 'prod')
-    # Detect duplicate cluster names. A duplicate name would make
-    # name=<dup> match multiple rows (potentially including a prod
-    # row), bypassing the explicit-name opt-in's safety intent.
-    $names = $doc.clusters | ForEach-Object { [string]$_.name }
-    $dups = $names | Group-Object | Where-Object { $_.Count -gt 1 } | Select-Object -ExpandProperty Name
-    if ($dups) {
-        throw "Registry contains duplicate cluster name(s): $($dups -join ', '). Names must be unique."
-    }
-    $result = foreach ($c in $doc.clusters) {
-        # Validate required fields are present + non-empty so silent
-        # downstream failures don't happen.
+
+    # Validate required fields FIRST so a missing 'name' produces a
+    # clear "missing required field" error rather than colliding with
+    # other entries in the duplicate-name check below.
+    foreach ($c in $doc.clusters) {
         foreach ($field in @('name', 'context', 'tier')) {
             $v = $c.$field
             if ($null -eq $v -or ([string]$v).Trim() -eq '') {
@@ -127,10 +121,29 @@ function Read-ClustersRegistry {
         if ($c.tier -cnotin $allowedTiers) {
             throw "Registry entry '$($c.name)' has tier '$($c.tier)'; allowed: $($allowedTiers -join ', ')."
         }
+    }
+
+    # Now safe to detect duplicate cluster names. A duplicate name would
+    # make name=<dup> match multiple rows (potentially including a prod
+    # row), bypassing the explicit-name opt-in's safety intent.
+    $names = $doc.clusters | ForEach-Object { [string]$_.name }
+    $dups = $names | Group-Object | Where-Object { $_.Count -gt 1 } | Select-Object -ExpandProperty Name
+    if ($dups) {
+        throw "Registry contains duplicate cluster name(s): $($dups -join ', '). Names must be unique."
+    }
+
+    $result = foreach ($c in $doc.clusters) {
         $labels = @{}
         if ($c.labels) {
             foreach ($prop in $c.labels.PSObject.Properties) {
-                $labels[$prop.Name] = [string]$prop.Value
+                $val = $prop.Value
+                # Labels must be scalar strings (or string-coercible
+                # primitives). Reject arrays/objects so selectors don't
+                # silently match on a stringified hashtable.
+                if ($val -is [array] -or $val -is [System.Collections.IDictionary] -or $val -is [pscustomobject]) {
+                    throw "Registry entry '$($c.name)' label '$($prop.Name)' must be a scalar string; got $($val.GetType().FullName)."
+                }
+                $labels[$prop.Name] = [string]$val
             }
         }
         [pscustomobject]@{
@@ -183,7 +196,9 @@ function ConvertFrom-ClusterSelector {
             # the operator wrote.
             throw "Selector '$Selector' contains an empty term. Remove stray commas."
         }
-        if ($t -match '^([A-Za-z0-9_./-]+)(!=|=)([A-Za-z0-9_./:-]+)$') {
+        # Allow '@' in values for kubeconfig context names like
+        # 'user@cluster.example.com'. Keys remain conservative.
+        if ($t -match '^([A-Za-z0-9_./-]+)(!=|=)([A-Za-z0-9_./:@-]+)$') {
             [pscustomobject]@{
                 Key   = $Matches[1]
                 Op    = $Matches[2]
