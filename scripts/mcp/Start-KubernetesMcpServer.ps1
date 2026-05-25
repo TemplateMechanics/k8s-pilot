@@ -27,10 +27,11 @@
 .OUTPUTS
     Forwards the launcher's stdio. Exit codes:
       0      - launcher returned 0
-      2      - catalog parse error / server id not found / no launcher available
-      3      - yq not in PATH (none required; catalog is JSON, so this
-               error only fires for a future YAML catalog variant)
-      4      - -PreferredKind specified but no matching launcher available
+      2      - catalog parse error / schemaVersion mismatch / -ServerId
+               not found in catalog
+      4      - no usable launcher (none available on PATH, or
+               -PreferredKind specified and no matching launcher exists
+               or none of them are on PATH)
       other  - propagated from the launcher
 #>
 [CmdletBinding()]
@@ -81,23 +82,50 @@ if ($candidates.Count -eq 0) {
 
 $selected = $null
 foreach ($l in $candidates) {
-    if (Get-Command $l.command -ErrorAction SilentlyContinue) {
+    # -CommandType Application restricts the resolution to native
+    # executables; without this, an alias or function with the same
+    # name in the caller's session could be invoked instead of the
+    # real binary (catalog tampering escalation risk).
+    if (Get-Command $l.command -CommandType Application -ErrorAction SilentlyContinue) {
         $selected = $l
         break
     }
 }
 if (-not $selected) {
     $kinds = ($candidates | ForEach-Object { "$($_.kind):$($_.command)" }) -join ', '
-    Write-Error "No launcher for '$ServerId' has its command on PATH (tried: $kinds)."
+    Write-Error "No launcher for '$ServerId' has its command on PATH as a native executable (tried: $kinds)."
     exit 4
 }
 
-# Defense in depth: every arg about to hit a native CLI is rejected if it
-# starts with '-' from an unexpected source (catalog tampering). Real
-# flag args start with '-' too, so we accept this risk but check that
-# command itself is safe.
+# Defense in depth on the launcher command name itself.
 Assert-NonFlagArg -Value $selected.command -Name "catalog.launchers[].command"
 
-Write-Information "Starting MCP server '$ServerId' via $($selected.kind): $($selected.command) $($selected.args -join ' ')" -InformationAction Continue
-& $selected.command @($selected.args)
+# Expand ${env:VAR} interpolations in args. The catalog uses VS Code-style
+# variable syntax (so the catalog also makes sense to humans editing it),
+# but native command invocation doesn't expand those - we do it here. An
+# unresolved variable is replaced with an empty string and logged so the
+# operator notices.
+function Expand-CatalogArg {
+    param([string] $Arg)
+    return [regex]::Replace($Arg, '\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}', {
+        param($m)
+        $name = $m.Groups[1].Value
+        $val  = [System.Environment]::GetEnvironmentVariable($name)
+        if ($null -eq $val) {
+            Write-Warning "Environment variable '$name' referenced in catalog launcher is unset; substituting empty string."
+            return ''
+        }
+        return $val
+    })
+}
+
+# Normalize args (may be $null in catalog) and expand env interpolation.
+$rawArgs = if ($selected.args) { @($selected.args) } else { @() }
+$expanded = foreach ($a in $rawArgs) {
+    if ($null -eq $a) { '' } else { Expand-CatalogArg -Arg ([string]$a) }
+}
+$expanded = @($expanded)
+
+Write-Information "Starting MCP server '$ServerId' via $($selected.kind): $($selected.command) $($expanded -join ' ')" -InformationAction Continue
+& $selected.command @expanded
 exit $LASTEXITCODE

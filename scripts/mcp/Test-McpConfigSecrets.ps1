@@ -45,7 +45,7 @@ if ($existing.Count -eq 0) {
 
 # Patterns. Each is (regex, description).
 $patterns = @(
-    [pscustomobject]@{ Regex = '(?i)"(token|access_token|bearer|password|secret|api_-?key|client_secret)"\s*:\s*"(?!\$\{env:)([^"\\\s]{4,})"'; Desc = 'inline credential value (use ${env:VAR} instead)' },
+    [pscustomobject]@{ Regex = '(?i)"(token|access_token|bearer|password|secret|api[_-]?key|apikey|client_secret)"\s*:\s*"(?!\$\{env:)([^"\\\s]{4,})"'; Desc = 'inline credential value (use ${env:VAR} instead)' },
     [pscustomobject]@{ Regex = '\b(eyJ[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,}\.[a-zA-Z0-9_-]{10,})\b'; Desc = 'JWT-shaped string' },
     [pscustomobject]@{ Regex = '\b(AKIA[0-9A-Z]{16}|ASIA[0-9A-Z]{16})\b'; Desc = 'AWS access key id prefix' }
 )
