@@ -82,6 +82,14 @@ if ($candidates.Count -eq 0) {
 
 $selected = $null
 foreach ($l in $candidates) {
+    # Defensive: a malformed catalog entry with a missing/empty command
+    # would otherwise hit Get-Command with $null and throw an unhandled
+    # ParameterBindingException. Skip such entries with a warning so
+    # selection continues to the next valid launcher.
+    if ([string]::IsNullOrWhiteSpace($l.command)) {
+        Write-Warning "Catalog entry '$ServerId' launcher of kind '$($l.kind)' has an empty command; skipping."
+        continue
+    }
     # -CommandType Application restricts the resolution to native
     # executables; without this, an alias or function with the same
     # name in the caller's session could be invoked instead of the
@@ -102,9 +110,11 @@ Assert-NonFlagArg -Value $selected.command -Name "catalog.launchers[].command"
 
 # Expand ${env:VAR} interpolations in args. The catalog uses VS Code-style
 # variable syntax (so the catalog also makes sense to humans editing it),
-# but native command invocation doesn't expand those - we do it here. An
-# unresolved variable is replaced with an empty string and logged so the
-# operator notices.
+# but native command invocation doesn't expand those — we do it here. An
+# unresolved (unset/empty) variable causes Expand-CatalogArg to throw,
+# which the outer try/catch maps to exit 4. The only exception is
+# ${env:HOME}, which falls back to PowerShell's $HOME automatic
+# variable (cross-platform).
 function Expand-CatalogArg {
     param([string] $Arg)
     return [regex]::Replace($Arg, '\$\{env:([A-Za-z_][A-Za-z0-9_]*)\}', {
@@ -148,9 +158,12 @@ $expanded = @($expanded)
 # non-protocol bytes on stdout corrupt the framing. Log only the
 # launcher kind + command name (not the expanded argv) so values
 # sourced from ${env:VAR} interpolations don't leak into logs.
-[Console]::Error.WriteLine("Starting MCP server '$ServerId' via $($selected.kind):$($selected.command) (argv redacted to avoid leaking env-sourced values; re-run with -Verbose if you need to see them).")
+[Console]::Error.WriteLine("Starting MCP server '$ServerId' via $($selected.kind):$($selected.command) (argv redacted to avoid leaking env-sourced values; re-run with -Verbose to see the UNEXPANDED catalog argv).")
 if ($VerbosePreference -ne 'SilentlyContinue') {
-    [Console]::Error.WriteLine("  argv: $($expanded -join ' ')")
+    # Print the UNEXPANDED catalog form so any ${env:VAR} references
+    # stay symbolic (verbose context for debugging without leaking
+    # the resolved value into logs).
+    [Console]::Error.WriteLine("  catalog argv (unexpanded): $($rawArgs -join ' ')")
 }
 & $selected.command @expanded
 exit $LASTEXITCODE
