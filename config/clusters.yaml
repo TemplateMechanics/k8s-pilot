@@ -1,0 +1,53 @@
+# k8s-pilot multi-cluster registry
+#
+# Declares the named clusters the multi-cluster fan-out wrappers operate
+# on (scripts/multi-cluster/). The kubectl context for each cluster is
+# the source of truth — this file is metadata over your existing
+# kubeconfig contexts. See docs/MULTI-CLUSTER.md (planned, PR 11).
+#
+# Safety contract (CLAUDE.md §3.5, R4):
+#   - Read fan-out (Get-Clusters / Invoke-*Across) honors -Selector.
+#   - Mutation fan-out is INTENTIONALLY NOT a single wrapper; iterate one
+#     cluster at a time via the per-tool wrappers under scripts/<tool>/.
+#   - Clusters with `tier: prod` are EXCLUDED from selector fan-out by
+#     default. For READS you may include them via either
+#       (a) an explicit `name=<cluster>` term in the selector, OR
+#       (b) the `-IncludeProd` switch (which the wrapper documents).
+#     There is no mutation-side `-IncludeProd` because there is no
+#     multi-cluster mutation wrapper (CLAUDE.md §3.5).
+
+schemaVersion: 1
+
+clusters:
+  # --- EXAMPLES (replace with your own; this file is committed) ----------
+  - name: dev-us-east-1
+    context: arn:aws:eks:us-east-1:111111111111:cluster/dev
+    tier: dev
+    labels:
+      provider: aws
+      region: us-east-1
+      team: platform
+
+  - name: staging-us-east-1
+    context: arn:aws:eks:us-east-1:111111111111:cluster/staging
+    tier: staging
+    labels:
+      provider: aws
+      region: us-east-1
+      team: platform
+
+  - name: prod-us-east-1
+    context: arn:aws:eks:us-east-1:222222222222:cluster/prod
+    tier: prod
+    labels:
+      provider: aws
+      region: us-east-1
+      team: platform
+
+  - name: kind-local
+    context: kind-kind
+    tier: dev
+    labels:
+      provider: kind
+      region: local
+      team: platform

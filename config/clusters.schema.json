@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/TemplateMechanics/k8s-pilot/config/clusters.schema.json",
+  "title": "k8s-pilot multi-cluster registry",
+  "description": "Schema for config/clusters.yaml consumed by scripts/multi-cluster/*.",
+  "type": "object",
+  "required": ["schemaVersion", "clusters"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "const": 1,
+      "description": "Schema version. Currently pinned to 1; bump only with a coordinated wrapper update."
+    },
+    "clusters": {
+      "type": "array",
+      "minItems": 0,
+      "items": { "$ref": "#/$defs/cluster" }
+    }
+  },
+  "$defs": {
+    "cluster": {
+      "type": "object",
+      "required": ["name", "context", "tier"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "DNS-1123 label. The fan-out wrappers reference clusters by this name."
+        },
+        "context": {
+          "type": "string",
+          "minLength": 1,
+          "description": "kubectl context name (the source of truth)."
+        },
+        "kubeconfig": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional path to a non-default kubeconfig file. If specified, must be a non-empty string; omit the field entirely to use the default kubeconfig."
+        },
+        "tier": {
+          "type": "string",
+          "enum": ["dev", "staging", "prod"],
+          "description": "Environment tier. tier=prod is excluded from selector fan-out by default; include via explicit name= or -IncludeProd."
+        },
+        "labels": {
+          "type": "object",
+          "description": "Free-form labels for selector matching (k=v).",
+          "additionalProperties": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}

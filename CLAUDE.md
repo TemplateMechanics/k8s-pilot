@@ -11,7 +11,7 @@ Modeled on [tf-pilot/CLAUDE.md](https://github.com/TemplateMechanics/tf-pilot/bl
 For every user request that touches cluster state, follow this sequence in order. Do not skip steps. Do not reorder them.
 
 1. **Load instructions.** This file (`CLAUDE.md`), then the relevant agent persona under `agents/`, then the skill (`skills/kubernetes/SKILL.md` — planned, PR 3).
-2. **Discover, don't guess.** Use the Kubernetes MCP server (planned, PR 9) or the `scripts/multi-cluster/` fan-out wrappers (planned, PR 8) to read current cluster state. Do not invent API field names — look them up.
+2. **Discover, don't guess.** Use the Kubernetes MCP server (planned, PR 9) or the `scripts/multi-cluster/` fan-out wrappers to read current cluster state. Do not invent API field names — look them up.
 3. **Plan the change in chat.** Describe what kinds, namespaces, contexts, and clusters will be touched. Identify the blast radius before writing files.
 4. **Edit manifests, values, kustomizations, charts, or app definitions** using the repository's existing patterns.
 5. **Run the matching diff wrapper** for the tool family you're touching (see Section 3). Present the diff output to the user.
@@ -29,8 +29,8 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 |---|------|
 | R1 | Never call any mutating CLI invocation of `kubectl`, `helm`, `argocd`, or `flux` directly. (`kustomize` is a local render tool and never mutates cluster state — `kustomize build` is always allowed directly.) This includes (non-exhaustively) `kubectl apply`/`delete`/`patch`/`replace`/`create`/`scale`/`annotate`/`label`/`edit`, `helm install`/`upgrade`/`uninstall`/`rollback`, `argocd app sync`/`delete`/`set`/`patch`, and `flux reconcile`/`suspend`/`resume`/`delete`. Anything that changes cluster, release, application, or controller state goes through the corresponding wrapper under `scripts/<tool>/`. Read-only invocations (`get`, `describe`, `logs`, `template`, `diff`, `events`, `status`) are allowed directly for **(a) ad-hoc investigation** and **(b) the post-mutation verification step** of Section 1 step 8 (e.g. `helm status`, `flux get kustomization`, `argocd app wait`, `kubectl rollout status`). When you are on the mutation path (Section 1 step 5), you must still go through the matching `Invoke-*Diff.ps1` wrapper — the wrapper emits the diff artifact that the mutation wrapper requires, which a bare `kubectl diff` / `helm diff` / `argocd app diff` / `flux diff` does not. |
 | R2 | Never mutate cluster state without first showing a diff and getting explicit user approval for that specific diff. The metadata-only exception class (Section 3.6) carves out a narrow set of mutations whose intent is captured by the wrapper parameters themselves; those still require explicit user approval and a recorded `-Reason`. |
-| R3 | Never trust the ambient kubeconfig context. Every mutation wrapper requires an explicit `-Context <name>` argument or a `-Cluster <name>` reference resolved through `config/clusters.yaml` (planned, PR 8). |
-| R4 | Never fan out a mutation across multiple clusters unless the user explicitly passes `-AcknowledgeMultiClusterMutation`, and never include `tier=prod` clusters in a fan-out selector unless they are named explicitly. |
+| R3 | Never trust the ambient kubeconfig context. Every mutation wrapper requires an explicit `-Context <name>` argument or a `-Cluster <name>` reference resolved through `config/clusters.yaml`. |
+| R4 | Never fan out a mutation across multiple clusters unless the user explicitly passes `-AcknowledgeMultiClusterMutation`. For READ fan-out (`scripts/multi-cluster/Invoke-*Across.ps1` / `Get-Clusters.ps1`), `tier=prod` clusters are excluded from selector matches by default; include them ONLY via (a) an explicit `name=<cluster>` term in the selector OR (b) the `-IncludeProd` switch, which the wrapper documents and which still surfaces the matched prod cluster set before fan-out. There is no `-IncludeProd` for mutations because there is no multi-cluster mutation wrapper by design (§3.5). |
 | R5 | Never duplicate API reference content into agent personas, scripts, or docs. The single source of truth is `skills/kubernetes/SKILL.md` (planned, PR 3). Link to it instead. |
 | R6 | Never add a GitHub Actions workflow to this repo at this time. Validation is local-only via PowerShell scripts. |
 | R7 | Never commit secrets, kubeconfigs, generated tokens, or `*.pem`/`*.key`/`*.crt` material. Treat anything not in `.gitignore` with suspicion before staging. |
@@ -89,7 +89,7 @@ Argo CD has its own session/server state independent of the kubectl context (the
 | Suspend | `Invoke-FluxSuspend.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: true` on the named CR |
 | Resume | `Invoke-FluxResume.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: false`. After resume the first reconcile may apply accumulated drift — diff first if suspension was long. |
 
-### 3.5 Multi-cluster fan-out  (scripts/multi-cluster/, planned PR 8)
+### 3.5 Multi-cluster fan-out  (scripts/multi-cluster/)
 
 | Verb | Wrapper | Required arg | Notes |
 |------|---------|--------------|-------|
@@ -128,7 +128,7 @@ Each tool family has a persona under `agents/`. Load the relevant one in additio
 | `agents/helm.agent.md` | Authoring a chart, modifying values, upgrading a release, rolling back |
 | `agents/argocd.agent.md` | Application definitions, projects, sync waves, RBAC, app-of-apps |
 | `agents/flux.agent.md` | Kustomization CRs, HelmRelease CRs, GitRepository sources, reconciliation issues |
-| `agents/multi-cluster.agent.md` | Anything spanning multiple clusters (planned, PR 8) |
+| `agents/multi-cluster.agent.md` | Anything spanning multiple clusters |
 | `agents/chief-systems-engineer.agent.md` | Cross-tool architectural questions, choosing between Argo CD and Flux, designing the boundary between Helm and Kustomize |
 
 If the request mixes tools (e.g. "use Helm under Argo CD"), load both personas plus the chief-systems-engineer persona.
