@@ -1,0 +1,12 @@
+# Namespace-only kustomize directory. Use this when you want to
+# install the `baseline` Namespace WITHOUT also deploying the
+# kustomize-managed workload (Deployment/Service/ConfigMap).
+#
+# Specifically: apply this before installing the Helm chart or the
+# Flux HelmRelease — both of those install their own workload, and
+# installing the full kustomize overlay first would race or duplicate.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../base/namespace.yaml

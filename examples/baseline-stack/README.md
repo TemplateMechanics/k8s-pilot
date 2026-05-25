@@ -17,6 +17,7 @@ examples/baseline-stack/
     overlays/
       dev/                  per-tier overlay (replicas, image tag)
       staging/
+    namespace-only/         install just the `baseline` Namespace (for the Helm and HelmRelease paths that bring their own workload)
   helm/                     packaged equivalent of the kustomize app
     Chart.yaml
     values.yaml
@@ -78,12 +79,20 @@ Get-Content -LiteralPath $diff   # or `cat $diff` on POSIX shells
 ### helm (CLAUDE.md §3.2)
 
 > The Helm wrappers do NOT pass `--create-namespace` (see CLAUDE.md
-> §3.2 rationale). Create the namespace through the **kubectl wrapper
-> flow above first** — `kustomize/base/namespace.yaml` declares it, so
-> running `Invoke-KubectlApply.ps1 -DiffFile ... -Context kind-kind`
-> from a kustomize render will create it under the diff-before-mutate
-> contract. Do not shell out to `kubectl create namespace` ad hoc; that
-> bypasses the harness (CLAUDE.md R1).
+> §3.2 rationale). Create the namespace alone via the bundled
+> namespace-only kustomize wrapper so you don't also install the
+> kustomize-managed workload (which would conflict with this Helm
+> release):
+>
+> ```powershell
+> $diff = ./scripts/kubectl/Invoke-KubectlDiff.ps1 `
+>     -Path examples/baseline-stack/kustomize/namespace-only `
+>     -Context kind-kind
+> ./scripts/kubectl/Invoke-KubectlApply.ps1 -DiffFile $diff -Context kind-kind
+> ```
+>
+> Do not shell out to `kubectl create namespace` ad hoc; that bypasses
+> the diff-before-mutate contract (CLAUDE.md R1).
 
 ```powershell
 $rendered = ./scripts/helm/Invoke-HelmTemplate.ps1 `
@@ -147,8 +156,15 @@ $appDiff = ./scripts/argocd/Invoke-ArgocdAppDiff.ps1 `
 > Kustomization) OR `flux/install-helmrelease/` (GitRepository +
 > HelmRelease) — they are alternative reconciliation paths; applying
 > both would race. The HelmRelease variant requires the `baseline`
-> Namespace to exist first (apply the kustomize base/overlay before
-> install-helmrelease).
+> Namespace to exist first; use the namespace-only wrapper to create
+> just the Namespace without also installing the kustomize workload:
+>
+> ```powershell
+> $diff = ./scripts/kubectl/Invoke-KubectlDiff.ps1 `
+>     -Path examples/baseline-stack/kustomize/namespace-only `
+>     -Context kind-kind
+> ./scripts/kubectl/Invoke-KubectlApply.ps1 -DiffFile $diff -Context kind-kind
+> ```
 
 ```powershell
 $rendered = ./scripts/flux/Invoke-FluxBuild.ps1 `
