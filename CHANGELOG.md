@@ -63,7 +63,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `kustomize/base/` + overlays `dev/` (replicas=1) and `staging/` (replicas=3).
   - `helm/` packaged equivalent (`Chart.yaml`, `values.yaml`, `values-staging.yaml`, templates with the recommended labels).
   - `argocd/application.yaml` + `argocd/appproject.yaml` (SHA pinning placeholder; manual sync; ServerSideApply).
-  - `flux/gitrepository.yaml` + `flux/kustomization.yaml` + alternative `flux/helmrelease.yaml`.
+  - `flux/gitrepository.yaml` + `flux/flux-kustomization.yaml` (named to avoid collision with the kustomize tool's `kustomization.yaml` convention) + alternative `flux/helmrelease.yaml`.
   - `README.md` with copy-pasteable wrapper invocations for kubectl / helm / argocd / flux / multi-cluster.
 
 ### Planned

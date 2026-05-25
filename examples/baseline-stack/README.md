@@ -27,7 +27,7 @@ examples/baseline-stack/
     appproject.yaml         project + RBAC scope
   flux/
     gitrepository.yaml      Flux Source for the same kustomize path
-    kustomization.yaml      Flux reconciler
+    flux-kustomization.yaml Flux reconciler (named to avoid collision with kustomize's own kustomization.yaml convention)
     helmrelease.yaml        alternative path via the helm chart
 ```
 
@@ -129,7 +129,7 @@ $appDiff = ./scripts/argocd/Invoke-ArgocdAppDiff.ps1 `
 > **Apply the Flux CRs first.** The Flux wrappers operate on a
 > Kustomization that already exists in the cluster. Apply
 > `examples/baseline-stack/flux/gitrepository.yaml` +
-> `kustomization.yaml` via the kubectl wrapper flow to the
+> `flux-kustomization.yaml` via the kubectl wrapper flow to the
 > `flux-system` namespace before invoking the wrappers below.
 
 ```powershell
