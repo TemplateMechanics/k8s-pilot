@@ -66,7 +66,7 @@ if ($catalog.schemaVersion -ne 1) {
 
 $server = $catalog.servers | Where-Object { $_.id -ceq $ServerId } | Select-Object -First 1
 if (-not $server) {
-    Write-Error "No catalog entry with id='$ServerId'. Available: $(@($catalog.servers | ForEach-Object id) -join ', ')."
+    Write-Error "No catalog entry with id='$ServerId'. Available: $(@($catalog.servers | ForEach-Object { $_.id }) -join ', ')."
     exit 2
 }
 
