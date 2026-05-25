@@ -1,3 +1,13 @@
+# NOTE: this HelmRelease is namespaced to `baseline`. Apply it only
+# AFTER the `baseline` Namespace exists (e.g. after running the
+# kubectl wrapper flow against examples/baseline-stack/kustomize/, or
+# applying examples/baseline-stack/kustomize/base/namespace.yaml on
+# its own). On a fresh cluster, applying this manifest first will
+# fail because Kubernetes rejects namespaced objects whose namespace
+# doesn't exist.
+#
+# This file is the ALTERNATIVE reconciliation path to
+# flux-kustomization.yaml — apply one or the other, not both.
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:

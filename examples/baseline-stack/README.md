@@ -37,14 +37,14 @@ examples/baseline-stack/
 > The MUTATION wrappers (`Invoke-KubectlApply`, `Invoke-HelmUpgrade`,
 > `Invoke-ArgocdAppSync`, `Invoke-FluxReconcile`, etc.) require an
 > explicit `-Context <name>` and assert it matches the ambient context.
-> The diff/render wrappers also require `-Context` so the artifact is
-> tagged with a cluster identity. A few wrappers do NOT take `-Context`
-> because they target something else (`Invoke-HelmTemplate` is pure
-> rendering — no cluster contact; `Validate-Manifests` operates on
-> rendered files; `Invoke-Argocd*` wrappers take `-Server` instead of
-> `-Context` because Argo CD has its own session); the multi-cluster
-> wrappers resolve target clusters from `-Selector` against
-> `config/clusters.yaml`.
+> The diff wrappers also require `-Context` so the artifact is tagged
+> with a cluster identity. A few wrappers do NOT take `-Context`
+> because they target something else: `Invoke-HelmTemplate` and
+> `Invoke-FluxBuild` are pure rendering with no cluster contact;
+> `Validate-Manifests` operates on rendered files; the `Invoke-Argocd*`
+> wrappers take `-Server` instead of `-Context` because Argo CD has
+> its own session. The multi-cluster wrappers resolve target clusters
+> from `-Selector` against `config/clusters.yaml`.
 
 ### kubectl + kustomize (CLAUDE.md §3.1)
 
