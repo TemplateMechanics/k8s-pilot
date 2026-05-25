@@ -1,0 +1,10 @@
+# Kustomize wrapper around the Argo CD CRs so the kubectl wrapper
+# flow (Invoke-KustomizeBuild -> Invoke-KubectlDiff -> Invoke-KubectlApply)
+# can install them. Add ../application.yaml + ../appproject.yaml as
+# resources without duplicating the YAML on disk.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../appproject.yaml
+  - ../application.yaml

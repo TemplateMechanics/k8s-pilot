@@ -62,8 +62,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `examples/baseline-stack/`: end-to-end wrapper-flow exercise. Minimal nginx-served static HTML deployable through every tool family:
   - `kustomize/base/` + overlays `dev/` (replicas=1) and `staging/` (replicas=3).
   - `helm/` packaged equivalent (`Chart.yaml`, `values.yaml`, `values-staging.yaml`, templates with the recommended labels).
-  - `argocd/application.yaml` + `argocd/appproject.yaml` (SHA pinning placeholder; manual sync; ServerSideApply).
-  - `flux/gitrepository.yaml` + `flux/flux-kustomization.yaml` (named to avoid collision with the kustomize tool's `kustomization.yaml` convention) + alternative `flux/helmrelease.yaml`.
+  - `argocd/application.yaml` + `argocd/appproject.yaml` (SHA pinning placeholder; manual sync; ServerSideApply) + `argocd/install/` kustomize wrapper so the kubectl wrapper flow can install both CRs end-to-end.
+  - `flux/gitrepository.yaml` + `flux/flux-kustomization.yaml` (named to avoid collision with the kustomize tool's `kustomization.yaml` convention) + alternative `flux/helmrelease.yaml` + two kustomize wrappers (`flux/install-kustomization/` and `flux/install-helmrelease/`) for the two reconciliation paths.
   - `README.md` with copy-pasteable wrapper invocations for kubectl / helm / argocd / flux / multi-cluster.
 
 ### Planned

@@ -25,10 +25,14 @@ examples/baseline-stack/
   argocd/
     application.yaml        Application CR pointing at the kustomize path
     appproject.yaml         project + RBAC scope
+    install/
+      kustomization.yaml    kustomize wrapper so the kubectl flow can install both CRs
   flux/
     gitrepository.yaml      Flux Source for the same kustomize path
     flux-kustomization.yaml Flux reconciler (named to avoid collision with kustomize's own kustomization.yaml convention)
     helmrelease.yaml        alternative path via the helm chart
+    install-kustomization/  kustomize wrapper: GitRepository + Flux Kustomization
+    install-helmrelease/    kustomize wrapper: GitRepository + HelmRelease (alt path)
 ```
 
 ## Running each wrapper family
@@ -108,10 +112,11 @@ $diff = ./scripts/helm/Invoke-HelmDiff.ps1 `
 ```powershell
 ./scripts/argocd/Invoke-ArgocdLogin.ps1 -Server argocd.dev.example.com
 
-# The Application CR itself goes through the kubectl flow first
-# (it's a normal manifest):
+# The Application CR itself goes through the kubectl flow first.
+# Invoke-KubectlDiff requires a kustomize directory, so apply the
+# install/ wrapper instead of the raw manifests:
 $diff = ./scripts/kubectl/Invoke-KubectlDiff.ps1 `
-    -Path examples/baseline-stack/argocd -Context kind-kind
+    -Path examples/baseline-stack/argocd/install -Context kind-kind
 ./scripts/kubectl/Invoke-KubectlApply.ps1 -DiffFile $diff -Context kind-kind
 
 # Then drive the actual workload sync via the argocd wrappers:
@@ -127,15 +132,23 @@ $appDiff = ./scripts/argocd/Invoke-ArgocdAppDiff.ps1 `
 ### flux (CLAUDE.md §3.4)
 
 > **Apply the Flux CRs first.** The Flux wrappers operate on a
-> Kustomization that already exists in the cluster. Apply
-> `examples/baseline-stack/flux/gitrepository.yaml` +
-> `flux-kustomization.yaml` via the kubectl wrapper flow to the
-> `flux-system` namespace before invoking the wrappers below. **Do
-> NOT apply `flux/helmrelease.yaml` here** — it is an alternative
-> reconciliation path (HelmRelease in the `baseline` namespace) that
-> would race or duplicate the Kustomization above; apply it only if
-> you want to demo the HelmRelease flow instead, AFTER the
-> `baseline` namespace exists.
+> Kustomization that already exists in the cluster. The kubectl
+> wrapper flow only accepts kustomize directories, so use the
+> bundled install wrapper:
+>
+> ```powershell
+> $diff = ./scripts/kubectl/Invoke-KubectlDiff.ps1 `
+>     -Path examples/baseline-stack/flux/install-kustomization `
+>     -Context kind-kind
+> ./scripts/kubectl/Invoke-KubectlApply.ps1 -DiffFile $diff -Context kind-kind
+> ```
+>
+> Apply `flux/install-kustomization/` (GitRepository + Flux
+> Kustomization) OR `flux/install-helmrelease/` (GitRepository +
+> HelmRelease) — they are alternative reconciliation paths; applying
+> both would race. The HelmRelease variant requires the `baseline`
+> Namespace to exist first (apply the kustomize base/overlay before
+> install-helmrelease).
 
 ```powershell
 $rendered = ./scripts/flux/Invoke-FluxBuild.ps1 `
