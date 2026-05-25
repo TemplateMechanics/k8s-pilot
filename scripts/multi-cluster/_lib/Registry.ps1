@@ -157,10 +157,14 @@ function Read-ClustersRegistry {
             foreach ($prop in $c.labels.PSObject.Properties) {
                 $val = $prop.Value
                 # Match the JSON schema: labels are non-empty STRINGS.
-                # Reject non-string scalars (bool/number) and non-scalar
-                # types (array/object). YAML 'region: 5' should fail in
-                # the parser exactly like a schema validator would, so
-                # editors/CI and runtime agree on what's valid.
+                # Reject null, non-string scalars (bool/number), and
+                # non-scalar types (array/object). YAML 'region: 5'
+                # should fail in the parser exactly like a schema
+                # validator would, so editors/CI and runtime agree on
+                # what's valid.
+                if ($null -eq $val) {
+                    throw "Registry entry '$($c.name)' label '$($prop.Name)' must be a non-empty string; got null."
+                }
                 if ($val -isnot [string]) {
                     throw "Registry entry '$($c.name)' label '$($prop.Name)' must be a string (config/clusters.schema.json requires strings); got $($val.GetType().FullName). Quote the value in YAML if it would otherwise parse as number/bool."
                 }

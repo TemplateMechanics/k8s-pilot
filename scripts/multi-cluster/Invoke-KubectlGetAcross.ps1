@@ -109,6 +109,13 @@ foreach ($c in $clusters) {
     Assert-NonFlagArg -Value $c.context -Name "registry.cluster[$($c.name)].context"
     if ($c.kubeconfig) {
         Assert-NonFlagArg -Value $c.kubeconfig -Name "registry.cluster[$($c.name)].kubeconfig"
+        # Validate the kubeconfig file actually exists so we fail loud
+        # once here instead of producing N noisy per-cluster errors
+        # during fan-out.
+        if (-not (Test-Path -LiteralPath $c.kubeconfig -PathType Leaf)) {
+            Write-Error "Cluster '$($c.name)' references kubeconfig '$($c.kubeconfig)' which does not exist (or is not a file). Fix the registry entry."
+            exit 1
+        }
     }
 }
 
