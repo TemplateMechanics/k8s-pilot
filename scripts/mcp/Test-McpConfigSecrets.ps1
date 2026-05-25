@@ -1,12 +1,17 @@
 <#
 .SYNOPSIS
-    Scan committed .vscode/mcp*.json files for likely secret material
+    Scan the workspace's MCP config files for likely secret material
     before push.
 
 .DESCRIPTION
     Greps for patterns that suggest a credential was inlined into an
     MCP config (which would then end up in git). Designed to be invoked
     by scripts/Pre-Commit.ps1 (PR 12) but runnable standalone.
+
+    By default scans `.vscode/mcp.json` and
+    `.vscode/mcp.servers.catalog.json` (silently skipping any that do
+    not exist). Pass `-Paths` to scan additional or alternative paths
+    (e.g. a glob expansion via `Get-ChildItem .vscode/mcp*.json`).
 
     Patterns checked (case-insensitive):
       - `"token"\s*:\s*"` followed by a non-`${env:...}` non-empty value

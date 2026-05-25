@@ -111,6 +111,12 @@ function Expand-CatalogArg {
         param($m)
         $name = $m.Groups[1].Value
         $val  = [System.Environment]::GetEnvironmentVariable($name)
+        # Special-case HOME so Windows operators don't have to set the env
+        # var manually: PowerShell's $HOME automatic variable is
+        # cross-platform (USERPROFILE on Windows, $HOME on Unix).
+        if (($null -eq $val -or $val -eq '') -and $name -eq 'HOME' -and $HOME) {
+            return $HOME
+        }
         if ($null -eq $val -or $val -eq '') {
             # Fail loud: silently substituting an empty string can produce
             # malformed args like '-v /.kube:/root/.kube:ro' (rooted at
@@ -139,7 +145,12 @@ $expanded = @($expanded)
 
 # Status to STDERR, not stdout — when this script is used as the MCP
 # transport for a client that speaks the MCP stdio protocol, any
-# non-protocol bytes on stdout corrupt the framing.
-[Console]::Error.WriteLine("Starting MCP server '$ServerId' via $($selected.kind): $($selected.command) $($expanded -join ' ')")
+# non-protocol bytes on stdout corrupt the framing. Log only the
+# launcher kind + command name (not the expanded argv) so values
+# sourced from ${env:VAR} interpolations don't leak into logs.
+[Console]::Error.WriteLine("Starting MCP server '$ServerId' via $($selected.kind):$($selected.command) (argv redacted to avoid leaking env-sourced values; re-run with -Verbose if you need to see them).")
+if ($VerbosePreference -ne 'SilentlyContinue') {
+    [Console]::Error.WriteLine("  argv: $($expanded -join ' ')")
+}
 & $selected.command @expanded
 exit $LASTEXITCODE
