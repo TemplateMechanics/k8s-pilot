@@ -102,10 +102,14 @@ function Read-ClustersRegistry {
         throw "Registry '$RegistryPath' is missing the required top-level 'clusters' field. See config/clusters.schema.json."
     }
     if ($null -eq $doc.clusters) {
-        # Field is present but null (e.g. `clusters: ~` or `clusters: []`
-        # collapses to null in some yq paths). Treat empty list as
-        # legitimate but log so empty fan-outs aren't a complete surprise.
-        Write-Warning "Registry '$RegistryPath' has zero clusters. Fan-out wrappers will match nothing."
+        Write-Warning "Registry '$RegistryPath' has zero clusters (field is null). Fan-out wrappers will match nothing."
+        return @()
+    }
+    # Empty list (clusters: []) is deserialized as an array with
+    # Count=0 — also surface as a warning so empty fan-outs are not
+    # a silent surprise.
+    if ($doc.clusters -is [System.Array] -and $doc.clusters.Count -eq 0) {
+        Write-Warning "Registry '$RegistryPath' has zero clusters (empty list). Fan-out wrappers will match nothing."
         return @()
     }
 
