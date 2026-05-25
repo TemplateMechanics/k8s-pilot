@@ -10,11 +10,13 @@ spec:
   source:
     repoURL: https://github.com/TemplateMechanics/k8s-pilot.git
     # IMPORTANT: replace this with an immutable commit SHA or tag BEFORE
-    # applying this Application. The literal value below is a placeholder
-    # that Argo CD will reject — that rejection is intentional, so the
-    # Application cannot be accidentally synced against a moving target.
-    # See CLAUDE.md R1 / agents/argocd.agent.md for the audit-trail
-    # rationale.
+    # applying this Application. Kubernetes will accept the CR as-is
+    # (it's a valid string); Argo CD will then mark the Application
+    # Unknown/Failed when it cannot resolve this ref in git. That
+    # downstream failure is intentional — it surfaces the unfilled
+    # placeholder loudly instead of letting the Application sync
+    # against a moving branch. See CLAUDE.md R1 and
+    # agents/argocd.agent.md for the audit-trail rationale.
     targetRevision: REPLACE_WITH_COMMIT_SHA_OR_TAG_BEFORE_APPLY
     path: examples/baseline-stack/kustomize/overlays/dev
   destination:

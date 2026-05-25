@@ -73,9 +73,13 @@ Get-Content -LiteralPath $diff   # or `cat $diff` on POSIX shells
 
 ### helm (CLAUDE.md §3.2)
 
-> The Helm wrappers do NOT pass `--create-namespace` (see
-> CLAUDE.md §3.2 rationale). Create the namespace via the kubectl
-> wrapper flow above first, OR run a one-time `kubectl --context kind-kind create namespace baseline` before the helm steps.
+> The Helm wrappers do NOT pass `--create-namespace` (see CLAUDE.md
+> §3.2 rationale). Create the namespace through the **kubectl wrapper
+> flow above first** — `kustomize/base/namespace.yaml` declares it, so
+> running `Invoke-KubectlApply.ps1 -DiffFile ... -Context kind-kind`
+> from a kustomize render will create it under the diff-before-mutate
+> contract. Do not shell out to `kubectl create namespace` ad hoc; that
+> bypasses the harness (CLAUDE.md R1).
 
 ```powershell
 $rendered = ./scripts/helm/Invoke-HelmTemplate.ps1 `
