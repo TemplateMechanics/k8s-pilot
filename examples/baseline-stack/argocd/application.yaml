@@ -3,8 +3,14 @@ kind: Application
 metadata:
   name: baseline
   namespace: argocd
-  finalizers:
-    - resources-finalizer.argocd.argoproj.io
+  # The resources-finalizer is INTENTIONALLY omitted in this example
+  # because the kustomize base creates the `baseline` Namespace. With
+  # the finalizer, deleting this Application would cascade-delete the
+  # Namespace and every workload inside it — a blast radius surprising
+  # for a learning example. Add the finalizer back in a production
+  # fork once the Namespace is managed elsewhere:
+  #   finalizers:
+  #     - resources-finalizer.argocd.argoproj.io
 spec:
   project: baseline-stack
   source:
