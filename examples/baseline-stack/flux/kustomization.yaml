@@ -6,7 +6,14 @@ metadata:
 spec:
   interval: 10m
   path: ./examples/baseline-stack/kustomize/overlays/dev
-  prune: true
+  # prune is INTENTIONALLY false here. The kustomize base includes a
+  # Namespace resource (baseline). If prune were true and this Flux
+  # Kustomization were deleted (or stopped emitting the namespace),
+  # Flux would delete the Namespace and ALL workloads inside it — a
+  # blast radius surprising for a routine cleanup. Production users
+  # who want pruning should split the namespace into a separate Flux
+  # Kustomization (lifecycled separately) before flipping this to true.
+  prune: false
   sourceRef:
     kind: GitRepository
     name: baseline-stack

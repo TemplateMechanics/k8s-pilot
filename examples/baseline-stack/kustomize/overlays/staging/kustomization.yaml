@@ -4,8 +4,12 @@ kind: Kustomization
 resources:
   - ../../base
 
-commonLabels:
-  tier: staging
+# tier as metadata only — see overlay dev for the immutable-selector
+# rationale.
+labels:
+  - includeSelectors: false
+    pairs:
+      tier: staging
 
 patches:
   - target: { kind: Deployment, name: baseline-web }

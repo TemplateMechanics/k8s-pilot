@@ -4,8 +4,13 @@ kind: Kustomization
 resources:
   - ../../base
 
-commonLabels:
-  tier: dev
+# tier MUST be metadata-only (includeSelectors: false). If it became
+# part of the Deployment selector, switching tier=dev <-> tier=staging
+# would try to mutate an immutable selector and the apply would fail.
+labels:
+  - includeSelectors: false
+    pairs:
+      tier: dev
 
 patches:
   - target: { kind: Deployment, name: baseline-web }

@@ -99,6 +99,12 @@ $diff = ./scripts/helm/Invoke-HelmDiff.ps1 `
 
 ### argocd (CLAUDE.md §3.3)
 
+> **Edit `examples/baseline-stack/argocd/application.yaml` first**:
+> replace the `targetRevision: REPLACE_WITH_COMMIT_SHA_OR_TAG_BEFORE_APPLY`
+> placeholder with an immutable commit SHA or tag. Applying the
+> Application without this edit will leave it in an Unknown/Failed
+> state in Argo CD because the placeholder isn't a real git ref.
+
 ```powershell
 ./scripts/argocd/Invoke-ArgocdLogin.ps1 -Server argocd.dev.example.com
 
@@ -119,6 +125,12 @@ $appDiff = ./scripts/argocd/Invoke-ArgocdAppDiff.ps1 `
 ```
 
 ### flux (CLAUDE.md §3.4)
+
+> **Apply the Flux CRs first.** The Flux wrappers operate on a
+> Kustomization that already exists in the cluster. Apply
+> `examples/baseline-stack/flux/gitrepository.yaml` +
+> `kustomization.yaml` via the kubectl wrapper flow to the
+> `flux-system` namespace before invoking the wrappers below.
 
 ```powershell
 $rendered = ./scripts/flux/Invoke-FluxBuild.ps1 `

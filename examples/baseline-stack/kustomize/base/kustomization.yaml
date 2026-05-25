@@ -3,10 +3,18 @@ kind: Kustomization
 
 namespace: baseline
 
-commonLabels:
-  app.kubernetes.io/name: baseline-web
-  app.kubernetes.io/part-of: baseline-stack
-  app.kubernetes.io/managed-by: kustomize
+# Use the modern `labels:` form with explicit includeSelectors so we
+# don't accidentally bake non-selector labels into immutable
+# Deployment/Service selectors. Only app.kubernetes.io/name belongs in
+# the selector (it identifies the app); the others are metadata.
+labels:
+  - includeSelectors: true
+    pairs:
+      app.kubernetes.io/name: baseline-web
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/part-of: baseline-stack
+      app.kubernetes.io/managed-by: kustomize
 
 resources:
   - namespace.yaml
