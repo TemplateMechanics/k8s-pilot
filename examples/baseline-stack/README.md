@@ -34,7 +34,17 @@ examples/baseline-stack/
 ## Running each wrapper family
 
 > Pre-flight: ensure `kubectl config current-context` is what you intend.
-> The wrappers REQUIRE you to pass `-Context <name>` and assert it matches.
+> The MUTATION wrappers (`Invoke-KubectlApply`, `Invoke-HelmUpgrade`,
+> `Invoke-ArgocdAppSync`, `Invoke-FluxReconcile`, etc.) require an
+> explicit `-Context <name>` and assert it matches the ambient context.
+> The diff/render wrappers also require `-Context` so the artifact is
+> tagged with a cluster identity. A few wrappers do NOT take `-Context`
+> because they target something else (`Invoke-HelmTemplate` is pure
+> rendering — no cluster contact; `Validate-Manifests` operates on
+> rendered files; `Invoke-Argocd*` wrappers take `-Server` instead of
+> `-Context` because Argo CD has its own session); the multi-cluster
+> wrappers resolve target clusters from `-Selector` against
+> `config/clusters.yaml`.
 
 ### kubectl + kustomize (CLAUDE.md §3.1)
 
@@ -49,8 +59,12 @@ $rendered = ./scripts/kubectl/Invoke-KustomizeBuild.ps1 `
 $diff = ./scripts/kubectl/Invoke-KubectlDiff.ps1 `
     -Path examples/baseline-stack/kustomize/overlays/dev `
     -Context kind-kind
-# Review the printed diff. If acceptable:
+# Invoke-KubectlDiff writes the diff to the artifact file whose path
+# is returned in $diff; it does NOT print the diff body to the console.
+# Open the file to review:
+Get-Content -LiteralPath $diff   # or `cat $diff` on POSIX shells
 
+# If the diff is acceptable:
 ./scripts/kubectl/Invoke-KubectlApply.ps1 -DiffFile $diff -Context kind-kind
 
 ./scripts/kubectl/Invoke-RolloutStatus.ps1 `
@@ -58,6 +72,10 @@ $diff = ./scripts/kubectl/Invoke-KubectlDiff.ps1 `
 ```
 
 ### helm (CLAUDE.md §3.2)
+
+> The Helm wrappers do NOT pass `--create-namespace` (see
+> CLAUDE.md §3.2 rationale). Create the namespace via the kubectl
+> wrapper flow above first, OR run a one-time `kubectl --context kind-kind create namespace baseline` before the helm steps.
 
 ```powershell
 $rendered = ./scripts/helm/Invoke-HelmTemplate.ps1 `

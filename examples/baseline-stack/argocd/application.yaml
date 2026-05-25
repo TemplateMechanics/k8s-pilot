@@ -9,8 +9,13 @@ spec:
   project: baseline-stack
   source:
     repoURL: https://github.com/TemplateMechanics/k8s-pilot.git
-    # Pin to an immutable SHA before applying — never `HEAD`.
-    targetRevision: REPLACE_WITH_COMMIT_SHA
+    # IMPORTANT: replace this with an immutable commit SHA or tag BEFORE
+    # applying this Application. The literal value below is a placeholder
+    # that Argo CD will reject — that rejection is intentional, so the
+    # Application cannot be accidentally synced against a moving target.
+    # See CLAUDE.md R1 / agents/argocd.agent.md for the audit-trail
+    # rationale.
+    targetRevision: REPLACE_WITH_COMMIT_SHA_OR_TAG_BEFORE_APPLY
     path: examples/baseline-stack/kustomize/overlays/dev
   destination:
     server: https://kubernetes.default.svc
