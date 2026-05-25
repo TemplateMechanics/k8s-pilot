@@ -130,7 +130,12 @@ $appDiff = ./scripts/argocd/Invoke-ArgocdAppDiff.ps1 `
 > Kustomization that already exists in the cluster. Apply
 > `examples/baseline-stack/flux/gitrepository.yaml` +
 > `flux-kustomization.yaml` via the kubectl wrapper flow to the
-> `flux-system` namespace before invoking the wrappers below.
+> `flux-system` namespace before invoking the wrappers below. **Do
+> NOT apply `flux/helmrelease.yaml` here** — it is an alternative
+> reconciliation path (HelmRelease in the `baseline` namespace) that
+> would race or duplicate the Kustomization above; apply it only if
+> you want to demo the HelmRelease flow instead, AFTER the
+> `baseline` namespace exists.
 
 ```powershell
 $rendered = ./scripts/flux/Invoke-FluxBuild.ps1 `
