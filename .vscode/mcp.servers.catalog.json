@@ -12,7 +12,7 @@
         {
           "kind": "npx",
           "command": "npx",
-          "args": ["-y", "kubernetes-mcp-server@latest"]
+          "args": ["-y", "kubernetes-mcp-server@0.0.20"]
         },
         {
           "kind": "docker",
@@ -20,7 +20,7 @@
           "args": [
             "run", "--rm", "-i",
             "-v", "${env:HOME}/.kube:/root/.kube:ro",
-            "quay.io/manusa/kubernetes-mcp-server:latest"
+            "quay.io/manusa/kubernetes-mcp-server:0.0.20"
           ]
         }
       ],

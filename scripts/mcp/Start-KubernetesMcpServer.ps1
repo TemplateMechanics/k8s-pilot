@@ -111,21 +111,35 @@ function Expand-CatalogArg {
         param($m)
         $name = $m.Groups[1].Value
         $val  = [System.Environment]::GetEnvironmentVariable($name)
-        if ($null -eq $val) {
-            Write-Warning "Environment variable '$name' referenced in catalog launcher is unset; substituting empty string."
-            return ''
+        if ($null -eq $val -or $val -eq '') {
+            # Fail loud: silently substituting an empty string can produce
+            # malformed args like '-v /.kube:/root/.kube:ro' (rooted at
+            # the FS root) which mounts the wrong directory. Throw and
+            # let the caller surface exit 4.
+            throw "Environment variable '$name' referenced in catalog launcher is unset/empty. Set it before launching or change the catalog to a literal."
         }
         return $val
     })
 }
 
 # Normalize args (may be $null in catalog) and expand env interpolation.
+# A failed expansion (unset env var) becomes an exit-4 error so the
+# operator notices instead of silently launching with bogus args.
 $rawArgs = if ($selected.args) { @($selected.args) } else { @() }
-$expanded = foreach ($a in $rawArgs) {
-    if ($null -eq $a) { '' } else { Expand-CatalogArg -Arg ([string]$a) }
+try {
+    $expanded = foreach ($a in $rawArgs) {
+        if ($null -eq $a) { '' } else { Expand-CatalogArg -Arg ([string]$a) }
+    }
+}
+catch {
+    Write-Error "Catalog launcher args could not be resolved: $($_.Exception.Message)"
+    exit 4
 }
 $expanded = @($expanded)
 
-Write-Information "Starting MCP server '$ServerId' via $($selected.kind): $($selected.command) $($expanded -join ' ')" -InformationAction Continue
+# Status to STDERR, not stdout — when this script is used as the MCP
+# transport for a client that speaks the MCP stdio protocol, any
+# non-protocol bytes on stdout corrupt the framing.
+[Console]::Error.WriteLine("Starting MCP server '$ServerId' via $($selected.kind): $($selected.command) $($expanded -join ' ')")
 & $selected.command @expanded
 exit $LASTEXITCODE

@@ -57,8 +57,11 @@ foreach ($file in $existing) {
         $line = $content[$i]
         foreach ($p in $patterns) {
             if ($line -match $p.Regex) {
-                Write-Information "${file}:$($i + 1): suspected $($p.Desc)" -InformationAction Continue
-                Write-Information "  > $line" -InformationAction Continue
+                # Report location + description; do NOT echo the matched
+                # value (would re-expose the credential in terminal/CI
+                # logs). If the operator needs the full line, they can
+                # open the file at that line number.
+                Write-Information "${file}:$($i + 1): suspected $($p.Desc) — value redacted; open the file at the line for context." -InformationAction Continue
                 $hits++
             }
         }
