@@ -176,12 +176,19 @@ $expanded = @($expanded)
 # non-protocol bytes on stdout corrupt the framing. Log only the
 # launcher kind + command name (not the expanded argv) so values
 # sourced from ${env:VAR} interpolations don't leak into logs.
-[Console]::Error.WriteLine("Starting MCP server '$ServerId' via $($selected.kind):$($selected.command) (argv redacted to avoid leaking env-sourced values; re-run with -Verbose to see the UNEXPANDED catalog argv).")
+# Resolve the launcher to its FULL path via Get-Command so the
+# subsequent invocation cannot be hijacked by an alias/function with
+# the same name in the caller's session. & $cmdSource is interpreted
+# as a path when it looks like one, not as a function name.
+$cmdInfo = Get-Command -Name $selected.command -CommandType Application -ErrorAction Stop
+$cmdSource = $cmdInfo.Source
+
+[Console]::Error.WriteLine("Starting MCP server '$ServerId' via $($selected.kind):$cmdSource (argv redacted to avoid leaking env-sourced values; re-run with -Verbose to see the UNEXPANDED catalog argv).")
 if ($VerbosePreference -ne 'SilentlyContinue') {
     # Print the UNEXPANDED catalog form so any ${env:VAR} references
     # stay symbolic (verbose context for debugging without leaking
     # the resolved value into logs).
     [Console]::Error.WriteLine("  catalog argv (unexpanded): $($rawArgs -join ' ')")
 }
-& $selected.command @expanded
+& $cmdSource @expanded
 exit $LASTEXITCODE
