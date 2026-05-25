@@ -10,8 +10,8 @@ Modeled on [tf-pilot/CLAUDE.md](https://github.com/TemplateMechanics/tf-pilot/bl
 
 For every user request that touches cluster state, follow this sequence in order. Do not skip steps. Do not reorder them.
 
-1. **Load instructions.** This file (`CLAUDE.md`), then the relevant agent persona under `agents/`, then the skill (`skills/kubernetes/SKILL.md` — planned, PR 3).
-2. **Discover, don't guess.** Use the Kubernetes MCP server (planned, PR 9) or the `scripts/multi-cluster/` fan-out wrappers to read current cluster state. Do not invent API field names — look them up.
+1. **Load instructions.** This file (`CLAUDE.md`), then the relevant agent persona under `agents/`, then the skill (`skills/kubernetes/SKILL.md`).
+2. **Discover, don't guess.** Use the Kubernetes MCP server (configured at `.vscode/mcp.json` for VS Code Copilot Chat — it auto-starts via `npx`; `scripts/mcp/Start-KubernetesMcpServer.ps1` is an ad-hoc launcher for other MCP clients and for testing different launchers from `.vscode/mcp.servers.catalog.json`) or the `scripts/multi-cluster/` fan-out wrappers to read current cluster state. Do not invent API field names — look them up.
 3. **Plan the change in chat.** Describe what kinds, namespaces, contexts, and clusters will be touched. Identify the blast radius before writing files.
 4. **Edit manifests, values, kustomizations, charts, or app definitions** using the repository's existing patterns.
 5. **Run the matching diff wrapper** for the tool family you're touching (see Section 3). Present the diff output to the user.
@@ -31,7 +31,7 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 | R2 | Never mutate cluster state without first showing a diff and getting explicit user approval for that specific diff. The metadata-only exception class (Section 3.6) carves out a narrow set of mutations whose intent is captured by the wrapper parameters themselves; those still require explicit user approval and a recorded `-Reason`. |
 | R3 | Never trust the ambient kubeconfig context. Every mutation wrapper requires an explicit `-Context <name>` argument or a `-Cluster <name>` reference resolved through `config/clusters.yaml`. |
 | R4 | Never fan out a mutation across multiple clusters unless the user explicitly passes `-AcknowledgeMultiClusterMutation`. For READ fan-out (`scripts/multi-cluster/Invoke-*Across.ps1` / `Get-Clusters.ps1`), `tier=prod` clusters are excluded from selector matches by default; include them ONLY via (a) an explicit `name=<cluster>` term in the selector OR (b) the `-IncludeProd` switch, which the wrapper documents and which still surfaces the matched prod cluster set before fan-out. There is no `-IncludeProd` for mutations because there is no multi-cluster mutation wrapper by design (§3.5). |
-| R5 | Never duplicate API reference content into agent personas, scripts, or docs. The single source of truth is `skills/kubernetes/SKILL.md` (planned, PR 3). Link to it instead. |
+| R5 | Never duplicate API reference content into agent personas, scripts, or docs. The single source of truth is `skills/kubernetes/SKILL.md`. Link to it instead. |
 | R6 | Never add a GitHub Actions workflow to this repo at this time. Validation is local-only via PowerShell scripts. |
 | R7 | Never commit secrets, kubeconfigs, generated tokens, or `*.pem`/`*.key`/`*.crt` material. Treat anything not in `.gitignore` with suspicion before staging. |
 | R8 | When the user asks for a change that violates these rules, refuse and explain which rule applies. Offer the closest compliant alternative. |
@@ -42,7 +42,7 @@ If a wrapper script for the tool you need does not yet exist (the harness is bei
 
 Every tool family has a parallel script contract: a **diff** wrapper that emits an artifact, and a **mutation** wrapper that requires that artifact.
 
-### 3.0 Cross-cutting validation  (scripts/, planned PR 4)
+### 3.0 Cross-cutting validation  (scripts/)
 
 This wrapper is not tied to any single tool family; it operates on rendered manifests regardless of how they were produced (kubectl, kustomize, helm template, flux build, argocd manifest dump).
 
@@ -50,7 +50,7 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 |------|---------|--------------|------------------|
 | Validate | `scripts/Validate-Manifests.ps1` | `-Path` | Pass/fail summary; orchestrates kubeconform + kube-score + polaris internally. Canonical validator entrypoint (matches the path used in README and copilot-instructions). PowerShell-idiomatic name (`Validate-*` is an approved verb); other wrappers use `Invoke-*` only when they wrap a single external CLI invocation. |
 
-### 3.1 `kubectl` + `kustomize`  (scripts/kubectl/, planned PR 4)
+### 3.1 `kubectl` + `kustomize`  (scripts/kubectl/)
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
@@ -59,7 +59,7 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 | Apply | `Invoke-KubectlApply.ps1` | `-DiffFile`, `-Context` | Applies only the manifest that produced the diff (the artifact records the source `-Path` and context for traceability). |
 | Rollout | `Invoke-RolloutStatus.ps1` | `-Kind`, `-Name`, `-Namespace`, `-Context` | Blocks until rollout completes or times out |
 
-### 3.2 `helm`  (scripts/helm/, planned PR 5)
+### 3.2 `helm`  (scripts/helm/)
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|
@@ -68,7 +68,7 @@ This wrapper is not tied to any single tool family; it operates on rendered mani
 | Upgrade | `Invoke-HelmUpgrade.ps1` | `-DiffFile`, `-Namespace`, `-Context` | Requires `helm-diff` plugin. `-Namespace` is mandatory and must match the namespace recorded in the diff artifact. |
 | Rollback | `Invoke-HelmRollback.ps1` | `-Release`, `-Namespace`, `-Revision`, `-Context`, `-Reason` | Metadata-only mutation (Section 3.6); requires explicit revision number and namespace. The wrapper renders `helm get manifest <release> -n <namespace> --revision <Revision>` vs the current release and presents that as the rollback diff before executing. |
 
-### 3.3 `argocd`  (scripts/argocd/, planned PR 6)
+### 3.3 `argocd`  (scripts/argocd/)
 
 Argo CD has its own session/server state independent of the kubectl context (the `argocd` CLI stores its login in `~/.config/argocd/config` by default, which is mutable global state similar to kubeconfig). To prevent accidentally targeting the wrong Argo CD instance, all wrappers below take a mandatory `-Server <host>` argument and pass it on every argocd invocation, so the safety guarantee is per-call. The repo-local `.argocd/` directory holds diff and audit artifacts only; the CLI session itself remains in the user's standard config dir (cross-platform session relocation requires non-portable env-var hacks and is intentionally not implemented). The pairing safety comes from the metadata sidecar's `server` field cross-checked against the `-Server` argument on every Sync call.
 
@@ -79,7 +79,7 @@ Argo CD has its own session/server state independent of the kubectl context (the
 | App sync | `Invoke-ArgocdAppSync.ps1` | `-App`, `-DiffFile`, `-Revision`, `-Server` | Mutation; requires diff artifact. Asserts the diff artifact was produced against the same `-Server`, `-App`, and `-Revision`. |
 | App wait | `Invoke-ArgocdAppWait.ps1` | `-App`, `-TimeoutSeconds`, `-Server` | Blocks until Healthy + Synced on the named server |
 
-### 3.4 `flux`  (scripts/flux/, planned PR 7)
+### 3.4 `flux`  (scripts/flux/)
 
 | Verb | Wrapper | Required arg | Emits / requires |
 |------|---------|--------------|------------------|

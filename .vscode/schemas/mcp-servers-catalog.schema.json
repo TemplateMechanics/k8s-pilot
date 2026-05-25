@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/TemplateMechanics/k8s-pilot/.vscode/schemas/mcp-servers-catalog.schema.json",
+  "title": "k8s-pilot MCP servers catalog",
+  "description": "Schema for .vscode/mcp.servers.catalog.json.",
+  "type": "object",
+  "required": ["schemaVersion", "servers"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "schemaVersion": { "const": 1 },
+    "description": { "type": "string" },
+    "servers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/server" }
+    }
+  },
+  "$defs": {
+    "server": {
+      "type": "object",
+      "required": ["id", "title", "launchers"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+          "description": "Stable identifier; used in .vscode/mcp.json server keys when one of these catalog entries is the active server."
+        },
+        "title":       { "type": "string", "minLength": 1 },
+        "description": { "type": "string" },
+        "homepage":    { "type": "string", "format": "uri" },
+        "safetyNotes": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "launchers": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/launcher" }
+        }
+      }
+    },
+    "launcher": {
+      "type": "object",
+      "required": ["kind", "command"],
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": ["npx", "docker", "binary", "go-run"]
+        },
+        "command": { "type": "string", "minLength": 1 },
+        "args": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    }
+  }
+}

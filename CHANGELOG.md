@@ -53,6 +53,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - Per CLAUDE.md §3.5, there is intentionally NO `Invoke-*Across.ps1` mutation wrapper. Cross-cluster mutations must iterate one cluster at a time via the per-tool wrappers under `scripts/<tool>/`.
 - **Required dependency**: `mikefarah/yq v4+` (https://github.com/mikefarah/yq) must be on PATH for any multi-cluster wrapper. `Assert-YqAvailable` rejects older yq builds and the Python `kislyuk/yq` reimplementation.
 
+- `.vscode/mcp.json`: workspace MCP configuration declaring the Kubernetes MCP server (manusa/kubernetes-mcp-server, pinned to `0.0.20`) launched via `npx`. No env block — the server uses its default kubeconfig resolution (`$KUBECONFIG` if set, else `~/.kube/config`) so an unset `KUBECONFIG` doesn't get substituted as an empty override.
+- `.vscode/mcp.servers.catalog.json`: catalog of vetted MCP servers (schemaVersion=1) with multiple launchers per server (`npx`, `docker`) and safety notes (read-only by intent; mutations stay in `scripts/<tool>/`).
+- `.vscode/schemas/mcp-servers-catalog.schema.json`: JSON Schema for the catalog (DNS-1123 id; required launcher kind/command).
+- `scripts/mcp/Start-KubernetesMcpServer.ps1`: launches the catalog-selected MCP server by picking the first available launcher (or one matching `-PreferredKind`). Forwards stdio.
+- `scripts/mcp/Test-McpConfigSecrets.ps1`: scans `.vscode/mcp*.json` for inlined secrets (token / password / api key / JWT shapes / AWS access key prefixes) — `${env:VAR}` interpolations are explicitly allowed. Will be wired into `Pre-Commit.ps1` in PR 12.
+
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
 
