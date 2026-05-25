@@ -11,7 +11,7 @@ Modeled on [tf-pilot/CLAUDE.md](https://github.com/TemplateMechanics/tf-pilot/bl
 For every user request that touches cluster state, follow this sequence in order. Do not skip steps. Do not reorder them.
 
 1. **Load instructions.** This file (`CLAUDE.md`), then the relevant agent persona under `agents/`, then the skill (`skills/kubernetes/SKILL.md` — planned, PR 3).
-2. **Discover, don't guess.** Use the Kubernetes MCP server (planned, PR 9) or the `scripts/multi-cluster/` fan-out wrappers to read current cluster state. Do not invent API field names — look them up.
+2. **Discover, don't guess.** Use the Kubernetes MCP server (configured at `.vscode/mcp.json`; launcher: `scripts/mcp/Start-KubernetesMcpServer.ps1`) or the `scripts/multi-cluster/` fan-out wrappers to read current cluster state. Do not invent API field names — look them up.
 3. **Plan the change in chat.** Describe what kinds, namespaces, contexts, and clusters will be touched. Identify the blast radius before writing files.
 4. **Edit manifests, values, kustomizations, charts, or app definitions** using the repository's existing patterns.
 5. **Run the matching diff wrapper** for the tool family you're touching (see Section 3). Present the diff output to the user.

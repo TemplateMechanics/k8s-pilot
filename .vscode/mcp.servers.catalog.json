@@ -1,0 +1,34 @@
+{
+  "$schema": "./schemas/mcp-servers-catalog.schema.json",
+  "schemaVersion": 1,
+  "description": "Catalog of MCP servers vetted for k8s-pilot. The active set is declared in .vscode/mcp.json; this catalog documents alternatives operators can switch in.",
+  "servers": [
+    {
+      "id": "kubernetes",
+      "title": "Kubernetes MCP server (manusa)",
+      "description": "Exposes kubectl-equivalent read operations (get, describe, logs, events) plus apiserver discovery. Suitable for the read/discovery path; mutations still go through the scripts/<tool>/ wrappers per CLAUDE.md R1.",
+      "homepage": "https://github.com/manusa/kubernetes-mcp-server",
+      "launchers": [
+        {
+          "kind": "npx",
+          "command": "npx",
+          "args": ["-y", "kubernetes-mcp-server@latest"]
+        },
+        {
+          "kind": "docker",
+          "command": "docker",
+          "args": [
+            "run", "--rm", "-i",
+            "-v", "${env:HOME}/.kube:/root/.kube:ro",
+            "quay.io/manusa/kubernetes-mcp-server:latest"
+          ]
+        }
+      ],
+      "safetyNotes": [
+        "Read-only by intent for this repo's workflow. Do NOT use any MCP tool that performs writes; rely on scripts/<tool>/Invoke-*.ps1 wrappers for all mutations.",
+        "The server inherits your active kubeconfig. Confirm the intended context with `kubectl config current-context` before driving queries.",
+        "If a tool exposed by the server appears to take action (apply/delete/patch), refuse and ask the user — the harness contract is wrapper-mediated mutations only (CLAUDE.md R1)."
+      ]
+    }
+  ]
+}
