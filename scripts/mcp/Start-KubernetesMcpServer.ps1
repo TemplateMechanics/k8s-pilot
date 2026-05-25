@@ -90,11 +90,24 @@ foreach ($l in $candidates) {
         Write-Warning "Catalog entry '$ServerId' launcher of kind '$($l.kind)' has an empty command; skipping."
         continue
     }
+    # Pre-validate the command name BEFORE handing it to Get-Command.
+    # If a tampered catalog set command to e.g. '-NoProfile', Get-Command
+    # would parse it as a parameter name and ParameterBindingException
+    # would bypass our exit-code contract.
+    try {
+        Assert-NonFlagArg -Value $l.command -Name "catalog.launchers[].command"
+    }
+    catch {
+        Write-Warning "Catalog entry '$ServerId' launcher of kind '$($l.kind)' has an unsafe command '$($l.command)' (starts with '-'); skipping."
+        continue
+    }
     # -CommandType Application restricts the resolution to native
     # executables; without this, an alias or function with the same
     # name in the caller's session could be invoked instead of the
-    # real binary (catalog tampering escalation risk).
-    if (Get-Command $l.command -CommandType Application -ErrorAction SilentlyContinue) {
+    # real binary (catalog tampering escalation risk). Use -Name as
+    # explicit named param to neutralize any future arg-injection
+    # concern at this callsite.
+    if (Get-Command -Name $l.command -CommandType Application -ErrorAction SilentlyContinue) {
         $selected = $l
         break
     }
@@ -105,8 +118,8 @@ if (-not $selected) {
     exit 4
 }
 
-# Defense in depth on the launcher command name itself.
-Assert-NonFlagArg -Value $selected.command -Name "catalog.launchers[].command"
+# (The launcher command was already validated via Assert-NonFlagArg
+# inside the selection loop above before Get-Command saw it.)
 
 # Expand ${env:VAR} interpolations in args. The catalog uses VS Code-style
 # variable syntax (so the catalog also makes sense to humans editing it),
@@ -143,8 +156,13 @@ function Expand-CatalogArg {
 # operator notices instead of silently launching with bogus args.
 $rawArgs = if ($selected.args) { @($selected.args) } else { @() }
 try {
+    # Skip null elements rather than substituting empty string. Passing
+    # an empty-string argv element changes CLI behavior compared to
+    # omitting the arg entirely (some flags consume the next arg as a
+    # value, others treat empty as a literal).
     $expanded = foreach ($a in $rawArgs) {
-        if ($null -eq $a) { '' } else { Expand-CatalogArg -Arg ([string]$a) }
+        if ($null -eq $a) { continue }
+        Expand-CatalogArg -Arg ([string]$a)
     }
 }
 catch {

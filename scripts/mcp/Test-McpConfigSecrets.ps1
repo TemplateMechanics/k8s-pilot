@@ -57,7 +57,10 @@ $patterns = @(
 
 $hits = 0
 foreach ($file in $existing) {
-    $content = Get-Content -LiteralPath $file
+    # Force array context: Get-Content on a single-line file returns
+    # a scalar string, and $content.Count would then equal the char
+    # count while $content[$i] would index characters instead of lines.
+    $content = @(Get-Content -LiteralPath $file)
     for ($i = 0; $i -lt $content.Count; $i++) {
         $line = $content[$i]
         foreach ($p in $patterns) {
