@@ -105,10 +105,20 @@ function Read-ClustersRegistry {
         Write-Warning "Registry '$RegistryPath' has zero clusters (field is null). Fan-out wrappers will match nothing."
         return @()
     }
-    # Empty list (clusters: []) is deserialized as an array with
-    # Count=0 — also surface as a warning so empty fan-outs are not
-    # a silent surprise.
-    if ($doc.clusters -is [System.Array] -and $doc.clusters.Count -eq 0) {
+    # Require that 'clusters' is a sequence/array. An object or scalar
+    # would otherwise stumble through foreach/duplicate-name with
+    # confusing errors. ConvertFrom-Json returns arrays as
+    # System.Object[] or System.Collections.Generic.List`1; single-item
+    # arrays may decay to a single object — so accept both array AND
+    # the pscustomobject shape that yields a single item.
+    if ($doc.clusters -isnot [System.Array] -and $doc.clusters -isnot [System.Collections.IList] -and $doc.clusters -isnot [pscustomobject]) {
+        throw "Registry '$RegistryPath' field 'clusters' must be a sequence; got $($doc.clusters.GetType().FullName). See config/clusters.schema.json."
+    }
+    # Normalize single-item case to an array.
+    if ($doc.clusters -isnot [System.Array] -and $doc.clusters -isnot [System.Collections.IList]) {
+        $doc.clusters = @($doc.clusters)
+    }
+    if ($doc.clusters.Count -eq 0) {
         Write-Warning "Registry '$RegistryPath' has zero clusters (empty list). Fan-out wrappers will match nothing."
         return @()
     }
@@ -177,7 +187,21 @@ function Read-ClustersRegistry {
         [pscustomobject]@{
             name       = [string]$c.name
             context    = [string]$c.context
-            kubeconfig = if ($c.kubeconfig) { [string]$c.kubeconfig } else { $null }
+            # kubeconfig: only treat as 'absent' when the field is
+            # missing or null. Empty or whitespace strings are rejected
+            # (the schema requires minLength: 1; runtime should match).
+            kubeconfig = $(
+                if ($null -eq $c.kubeconfig) { $null }
+                elseif ($c.kubeconfig -is [string]) {
+                    if ([string]::IsNullOrWhiteSpace($c.kubeconfig)) {
+                        throw "Registry entry '$($c.name)' kubeconfig is empty/whitespace. Omit the field entirely to use the default kubeconfig (schema requires minLength: 1)."
+                    }
+                    [string]$c.kubeconfig
+                }
+                else {
+                    throw "Registry entry '$($c.name)' kubeconfig must be a string; got $($c.kubeconfig.GetType().FullName)."
+                }
+            )
             tier       = [string]$c.tier
             labels     = $labels
         }

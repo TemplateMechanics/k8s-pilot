@@ -11,7 +11,7 @@ Modeled on [tf-pilot/CLAUDE.md](https://github.com/TemplateMechanics/tf-pilot/bl
 For every user request that touches cluster state, follow this sequence in order. Do not skip steps. Do not reorder them.
 
 1. **Load instructions.** This file (`CLAUDE.md`), then the relevant agent persona under `agents/`, then the skill (`skills/kubernetes/SKILL.md` — planned, PR 3).
-2. **Discover, don't guess.** Use the Kubernetes MCP server (planned, PR 9) or the `scripts/multi-cluster/` fan-out wrappers (planned, PR 8) to read current cluster state. Do not invent API field names — look them up.
+2. **Discover, don't guess.** Use the Kubernetes MCP server (planned, PR 9) or the `scripts/multi-cluster/` fan-out wrappers to read current cluster state. Do not invent API field names — look them up.
 3. **Plan the change in chat.** Describe what kinds, namespaces, contexts, and clusters will be touched. Identify the blast radius before writing files.
 4. **Edit manifests, values, kustomizations, charts, or app definitions** using the repository's existing patterns.
 5. **Run the matching diff wrapper** for the tool family you're touching (see Section 3). Present the diff output to the user.
@@ -89,7 +89,7 @@ Argo CD has its own session/server state independent of the kubectl context (the
 | Suspend | `Invoke-FluxSuspend.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: true` on the named CR |
 | Resume | `Invoke-FluxResume.ps1` | `-Kind`, `-Name`, `-Reason`, `-Context` | Metadata-only mutation (Section 3.6); flips `spec.suspend: false`. After resume the first reconcile may apply accumulated drift — diff first if suspension was long. |
 
-### 3.5 Multi-cluster fan-out  (scripts/multi-cluster/, planned PR 8)
+### 3.5 Multi-cluster fan-out  (scripts/multi-cluster/)
 
 | Verb | Wrapper | Required arg | Notes |
 |------|---------|--------------|-------|
@@ -128,7 +128,7 @@ Each tool family has a persona under `agents/`. Load the relevant one in additio
 | `agents/helm.agent.md` | Authoring a chart, modifying values, upgrading a release, rolling back |
 | `agents/argocd.agent.md` | Application definitions, projects, sync waves, RBAC, app-of-apps |
 | `agents/flux.agent.md` | Kustomization CRs, HelmRelease CRs, GitRepository sources, reconciliation issues |
-| `agents/multi-cluster.agent.md` | Anything spanning multiple clusters (planned, PR 8) |
+| `agents/multi-cluster.agent.md` | Anything spanning multiple clusters |
 | `agents/chief-systems-engineer.agent.md` | Cross-tool architectural questions, choosing between Argo CD and Flux, designing the boundary between Helm and Kustomize |
 
 If the request mixes tools (e.g. "use Helm under Argo CD"), load both personas plus the chief-systems-engineer persona.
