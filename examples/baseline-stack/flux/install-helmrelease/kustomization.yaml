@@ -1,9 +1,12 @@
 # Kustomize wrapper for the Flux HelmRelease reconciliation path.
 # Includes the GitRepository source + HelmRelease CR (NOT the Flux
 # Kustomization — use the sibling install-kustomization/ for that
-# alternative path). Apply the baseline namespace first (via
-# kustomize/base or kustomize/overlays/dev) so the namespaced
-# HelmRelease has somewhere to land.
+# alternative path).
+#
+# Apply the baseline Namespace first via
+# `examples/baseline-stack/kustomize/namespace-only/` (NOT
+# kustomize/base or kustomize/overlays/dev — those would also install
+# the kustomize-managed workload and conflict with this HelmRelease).
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
