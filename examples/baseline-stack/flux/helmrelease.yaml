@@ -1,0 +1,23 @@
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: baseline
+  namespace: baseline
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: ./examples/baseline-stack/helm
+      sourceRef:
+        kind: GitRepository
+        name: baseline-stack
+        namespace: flux-system
+  targetNamespace: baseline
+  releaseName: baseline
+  install:
+    remediation: { retries: 0 }
+  upgrade:
+    remediation: { retries: 0, remediateLastFailure: true }
+    cleanupOnFail: true
+  values:
+    replicaCount: 1

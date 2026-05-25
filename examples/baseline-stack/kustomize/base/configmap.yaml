@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: baseline-web
+immutable: true
+data:
+  index.html: |
+    <!doctype html>
+    <html><head><title>baseline-stack</title></head>
+    <body><h1>k8s-pilot baseline-stack</h1>
+    <p>If you can read this, the wrapper flow worked end-to-end.</p>
+    </body></html>

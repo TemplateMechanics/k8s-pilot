@@ -1,0 +1,2 @@
+# Staging overrides only what differs from values.yaml.
+replicaCount: 3

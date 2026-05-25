@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}
+  labels: {{ include "baseline.labels" . | nindent 4 }}
+immutable: true
+data:
+  index.html: |-
+{{ .Values.content.indexHtml | indent 4 }}

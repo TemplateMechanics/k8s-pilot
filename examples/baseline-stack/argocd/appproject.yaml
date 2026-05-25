@@ -1,0 +1,21 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: baseline-stack
+  namespace: argocd
+spec:
+  description: Scope for the k8s-pilot baseline-stack example
+  sourceRepos:
+    - https://github.com/TemplateMechanics/k8s-pilot.git
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: baseline
+  clusterResourceWhitelist:
+    - { group: "", kind: Namespace }
+  namespaceResourceBlacklist:
+    - { group: "", kind: ResourceQuota }
+  roles:
+    - name: read-only
+      description: View baseline-stack apps and their resources.
+      policies:
+        - p, proj:baseline-stack:read-only, applications, get, baseline-stack/*, allow

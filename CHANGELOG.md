@@ -59,6 +59,13 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `scripts/mcp/Start-KubernetesMcpServer.ps1`: launches the catalog-selected MCP server by picking the first available launcher (or one matching `-PreferredKind`). Forwards stdio.
 - `scripts/mcp/Test-McpConfigSecrets.ps1`: scans `.vscode/mcp*.json` for inlined secrets (token / password / api key / JWT shapes / AWS access key prefixes) — `${env:VAR}` interpolations are explicitly allowed. Will be wired into `Pre-Commit.ps1` in PR 12.
 
+- `examples/baseline-stack/`: end-to-end wrapper-flow exercise. Minimal nginx-served static HTML deployable through every tool family:
+  - `kustomize/base/` + overlays `dev/` (replicas=1) and `staging/` (replicas=3).
+  - `helm/` packaged equivalent (`Chart.yaml`, `values.yaml`, `values-staging.yaml`, templates with the recommended labels).
+  - `argocd/application.yaml` + `argocd/appproject.yaml` (SHA pinning placeholder; manual sync; ServerSideApply).
+  - `flux/gitrepository.yaml` + `flux/kustomization.yaml` + alternative `flux/helmrelease.yaml`.
+  - `README.md` with copy-pasteable wrapper invocations for kubectl / helm / argocd / flux / multi-cluster.
+
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
 

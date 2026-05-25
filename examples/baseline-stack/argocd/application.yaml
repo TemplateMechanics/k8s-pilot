@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: baseline
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: baseline-stack
+  source:
+    repoURL: https://github.com/TemplateMechanics/k8s-pilot.git
+    # Pin to an immutable SHA before applying — never `HEAD`.
+    targetRevision: REPLACE_WITH_COMMIT_SHA
+    path: examples/baseline-stack/kustomize/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: baseline
+  syncPolicy:
+    # Manual sync by default. Enable automated.* deliberately.
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff: { duration: 5s, factor: 2, maxDuration: 3m }
