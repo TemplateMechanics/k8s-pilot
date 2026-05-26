@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
     Local pre-push gate for k8s-pilot. Runs the minimum validation set
-    over the staged/committed changes (or a caller-supplied path set)
-    before the operator pushes.
+    over a caller-supplied path set (or a sensible default discovered
+    from the working tree) before the operator pushes.
 
 .DESCRIPTION
     Per CLAUDE.md R6, there is no CI in this repo. `Pre-Commit.ps1` is
@@ -10,18 +10,25 @@
     push: rendered-manifest schema/quality/policy, and MCP config
     secret hygiene.
 
-    What it runs (each step is optional):
-      - Validate-Manifests.ps1 on every directory under -ManifestPaths
-        (or every kustomize directory discovered under examples/ if no
-        paths given). Orchestrates kubeconform + kube-score + polaris;
-        skips any tool that isn't installed.
+    What it runs:
+      - Validate-Manifests.ps1 on every entry in -ManifestPaths.
+        Kustomize directories are auto-rendered first via
+        Invoke-KustomizeBuild.ps1 (requires -Context). Validator
+        orchestrates kubeconform + kube-score + polaris; skips any
+        tool that isn't installed.
       - Test-McpConfigSecrets.ps1 against the workspace's MCP config
         files.
 
-    The gate is fast-fail: the first failing step's exit code becomes
-    the script's exit code, but every step still runs (so a single push
-    surfaces every class of issue at once rather than serializing one-
-    fix-per-push).
+    The gate is FAIL-LATE: every step runs even if a prior step
+    failed, so a single push surfaces every class of issue at once.
+    The script exits 1 if any step exited non-zero (excluding the
+    "skipped — nothing to do" exit code 2 from the secret scan when
+    no MCP config files are present).
+
+    NOTE: this script does NOT integrate with git directly (no
+    inspection of staged/committed paths). Drive it from your editor /
+    pre-push hook by passing the paths you want validated; the default
+    is to discover kustomize directories under examples/.
 
 .PARAMETER ManifestPaths
     One or more paths to validate. Each entry can be a single rendered
@@ -79,8 +86,9 @@ if (-not $ManifestPaths -or $ManifestPaths.Count -eq 0) {
     if (Test-Path -LiteralPath $examplesDir -PathType Container) {
         $ManifestPaths = @(
             Get-ChildItem -LiteralPath $examplesDir -Recurse -Force -File `
-                | Where-Object { $_.Name -eq 'kustomization.yaml' } `
-                | ForEach-Object { $_.Directory.FullName }
+                | Where-Object { $_.Name -ceq 'kustomization.yaml' -or $_.Name -ceq 'kustomization.yml' } `
+                | ForEach-Object { $_.Directory.FullName } `
+                | Sort-Object -Unique
         )
     }
     if (-not $ManifestPaths -or $ManifestPaths.Count -eq 0) {
@@ -193,5 +201,13 @@ if ($results.Count -eq 0) {
     Write-Warning "No pre-commit steps ran (all skipped or nothing to validate)."
     exit 2
 }
-$anyFailed = @($results | Where-Object { $_.exitCode -ne 0 }).Count -gt 0
+# Treat the MCP secret scanner's exit code 2 ("no MCP config files
+# present") as non-failing — it's a legitimate skip, not an error,
+# and would otherwise flip the whole gate red on repos that don't
+# happen to use MCP.
+$anyFailed = @(
+    $results | Where-Object {
+        $_.exitCode -ne 0 -and -not ($_.step -eq 'mcp-secret-scan' -and $_.exitCode -eq 2)
+    }
+).Count -gt 0
 if ($anyFailed) { exit 1 } else { exit 0 }
