@@ -15,8 +15,8 @@ examples/baseline-stack/
   kustomize/
     base/                   plain manifests + kustomization
     overlays/
-      dev/                  per-tier overlay (replicas, image tag)
-      staging/
+      dev/                  per-tier overlay (replicas: 1, tier label)
+      staging/              per-tier overlay (replicas: 3, tier label)
     namespace-only/         install just the `baseline` Namespace (for the Helm and HelmRelease paths that bring their own workload)
   helm/                     packaged equivalent of the kustomize app
     Chart.yaml

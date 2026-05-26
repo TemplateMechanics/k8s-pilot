@@ -4,9 +4,12 @@ kind: Kustomization
 namespace: baseline
 
 # Use the modern `labels:` form with explicit includeSelectors so we
-# don't accidentally bake non-selector labels into immutable
-# Deployment/Service selectors. Only app.kubernetes.io/name belongs in
-# the selector (it identifies the app); the others are metadata.
+# don't accidentally bake non-selector labels into the Deployment
+# selector (which is immutable in Kubernetes — changing it later
+# requires delete+recreate). Service selectors ARE mutable, but keeping
+# them lean still avoids accidental routing surprises. Only
+# app.kubernetes.io/name belongs in the selector here (it identifies
+# the app); the others are metadata.
 labels:
   - includeSelectors: true
     pairs:
