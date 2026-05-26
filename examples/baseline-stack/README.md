@@ -107,7 +107,14 @@ $diff = ./scripts/helm/Invoke-HelmDiff.ps1 `
     -ValuesFile examples/baseline-stack/helm/values.yaml `
     -Release baseline -Namespace baseline -Context kind-kind
 
-./scripts/helm/Invoke-HelmUpgrade.ps1 -DiffFile $diff -Namespace baseline -Context kind-kind
+# Invoke-HelmUpgrade refuses to run if the diff sidecar records
+# diffExitCode != 2 (helm-diff convention: 2 = changes present).
+# If $LASTEXITCODE from the diff is 0 (no changes), skip upgrade:
+if ($LASTEXITCODE -eq 2) {
+    ./scripts/helm/Invoke-HelmUpgrade.ps1 -DiffFile $diff -Namespace baseline -Context kind-kind
+} else {
+    Write-Host "No changes to upgrade (helm-diff exit $LASTEXITCODE)."
+}
 ```
 
 ### argocd (CLAUDE.md §3.3)
@@ -132,10 +139,18 @@ $diff = ./scripts/kubectl/Invoke-KubectlDiff.ps1 `
 $rev = '<sha-of-the-source-commit>'
 $appDiff = ./scripts/argocd/Invoke-ArgocdAppDiff.ps1 `
     -App baseline -Revision $rev -Server argocd.dev.example.com
-./scripts/argocd/Invoke-ArgocdAppSync.ps1 `
-    -App baseline -DiffFile $appDiff -Revision $rev -Server argocd.dev.example.com
-./scripts/argocd/Invoke-ArgocdAppWait.ps1 `
-    -App baseline -TimeoutSeconds 300 -Server argocd.dev.example.com
+
+# Invoke-ArgocdAppSync refuses to sync if the diff sidecar's native
+# diffExitCode != 1 (argocd convention: 1 = changes present, wrapper
+# exit 2). Skip sync when there's nothing to sync:
+if ($LASTEXITCODE -eq 2) {
+    ./scripts/argocd/Invoke-ArgocdAppSync.ps1 `
+        -App baseline -DiffFile $appDiff -Revision $rev -Server argocd.dev.example.com
+    ./scripts/argocd/Invoke-ArgocdAppWait.ps1 `
+        -App baseline -TimeoutSeconds 300 -Server argocd.dev.example.com
+} else {
+    Write-Host "No changes to sync (argocd app diff wrapper exit $LASTEXITCODE)."
+}
 ```
 
 ### flux (CLAUDE.md §3.4)
@@ -177,8 +192,15 @@ $diff = ./scripts/flux/Invoke-FluxDiff.ps1 `
     -Path examples/baseline-stack/kustomize/overlays/dev `
     -Context kind-kind
 
-./scripts/flux/Invoke-FluxReconcile.ps1 `
-    -Kustomization baseline -DiffFile $diff -Context kind-kind
+# Invoke-FluxReconcile refuses to run if the diff sidecar records
+# flux's native diffExitCode != 1 (flux convention: 1 = changes
+# present, wrapper exit 2). Skip when clean:
+if ($LASTEXITCODE -eq 2) {
+    ./scripts/flux/Invoke-FluxReconcile.ps1 `
+        -Kustomization baseline -DiffFile $diff -Context kind-kind
+} else {
+    Write-Host "No changes to reconcile (flux diff wrapper exit $LASTEXITCODE)."
+}
 ```
 
 ### multi-cluster (CLAUDE.md §3.5)
