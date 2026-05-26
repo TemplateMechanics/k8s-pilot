@@ -156,19 +156,34 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
             $kustomizeBuild = Join-Path $PSScriptRoot 'kubectl/Invoke-KustomizeBuild.ps1'
             # Run as subprocess so the child's `exit` does not kill us.
             # Capture stderr to a temp file (not 2>$null) so we can
-            # surface the actual error text — child wrappers stream
-            # diagnostics to stderr.
+            # surface diagnostics — child wrappers stream Write-Warning,
+            # Write-Information, and Write-Error to stderr.
             $childErr = [System.IO.Path]::GetTempFileName()
             try {
-                $renderedJson = & $pwshPath -NoProfile -File $kustomizeBuild -Path $p -Context $Context 2>$childErr
+                $renderedLines = & $pwshPath -NoProfile -File $kustomizeBuild -Path $p -Context $Context 2>$childErr
                 $buildExit = $LASTEXITCODE
                 $childErrText = Get-Content -LiteralPath $childErr -Raw -ErrorAction SilentlyContinue
             }
             finally {
                 Remove-Item -LiteralPath $childErr -Force -ErrorAction SilentlyContinue
             }
+            # Surface non-fatal diagnostics from the child on the parent's
+            # Warning stream so they aren't lost (kustomize-binary fallback,
+            # kustomize stderr warnings).
+            if ($childErrText -and $buildExit -eq 0) {
+                Write-Warning "Invoke-KustomizeBuild.ps1 stderr for '$p': $($childErrText.Trim())"
+            }
             if ($buildExit -ne 0) {
-                $errSnippet = if ($childErrText) { $childErrText.Trim() } else { '' }
+                # Collapse multi-line stderr to single-line so the
+                # per-step PASS/FAIL formatting stays scannable. Cap at
+                # 240 chars so a runaway message doesn't dominate.
+                $errSnippet = ''
+                if ($childErrText) {
+                    $errSnippet = ($childErrText -replace '\s+', ' ').Trim()
+                    if ($errSnippet.Length -gt 240) {
+                        $errSnippet = $errSnippet.Substring(0, 240) + '…'
+                    }
+                }
                 $results.Add([pscustomobject]@{
                     step     = 'kustomize-build'
                     path     = $p
@@ -179,7 +194,7 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
             }
             # The script writes the rendered path to its success stream
             # as its last line; take the last non-empty line as the path.
-            $rendered = @($renderedJson) | Where-Object { $_ } | Select-Object -Last 1
+            $rendered = @($renderedLines) | Where-Object { $_ } | Select-Object -Last 1
             $targetForValidator = $rendered
             $results.Add([pscustomobject]@{
                 step     = 'kustomize-build'
@@ -190,7 +205,10 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
         }
 
         $validate = Join-Path $PSScriptRoot 'Validate-Manifests.ps1'
-        & $pwshPath -NoProfile -File $validate -Path $targetForValidator | Out-Null
+        # Stream the child's stdout (its JSON summary + Validate-Manifests'
+        # human-readable lines) directly to our parent's streams so the
+        # operator sees WHY a validation failed, not just the FAIL marker.
+        & $pwshPath -NoProfile -File $validate -Path $targetForValidator
         $validateExit = $LASTEXITCODE
         $results.Add([pscustomobject]@{
             step     = 'validate-manifests'
@@ -208,19 +226,32 @@ if (-not $SkipMcpSecretScan) {
     $mcpScanner = Join-Path $PSScriptRoot 'mcp/Test-McpConfigSecrets.ps1'
     if (Test-Path -LiteralPath $mcpScanner -PathType Leaf) {
         # Subprocess for the same reason — child's `exit` shouldn't
-        # take down the orchestrator.
-        & $pwshPath -NoProfile -File $mcpScanner | Out-Null
-        $exit = $LASTEXITCODE
+        # take down the orchestrator. Stream stdout (the scanner's
+        # per-line warnings) directly to the parent so the operator
+        # sees WHICH file had the suspected secret.
+        & $pwshPath -NoProfile -File $mcpScanner
+        $mcpExitCode = $LASTEXITCODE
         $results.Add([pscustomobject]@{
             step     = 'mcp-secret-scan'
             path     = '.vscode/mcp*.json'
-            exitCode = $exit
-            notes    = switch ($exit) {
+            exitCode = $mcpExitCode
+            notes    = switch ($mcpExitCode) {
                 0 { 'clean' }
                 1 { 'suspected secret(s) detected' }
                 2 { 'no MCP config files present (skipped)' }
-                default { "scanner exited $exit" }
+                default { "scanner exited $mcpExitCode" }
             }
+        })
+    }
+    else {
+        # The scanner script should ship with the repo (PR 9). If it's
+        # missing, log a result row so the gate doesn't silently exit
+        # 'success' when a step the operator expected to run is gone.
+        $results.Add([pscustomobject]@{
+            step     = 'mcp-secret-scan'
+            path     = $mcpScanner
+            exitCode = 1
+            notes    = "Scanner script missing — was scripts/mcp/Test-McpConfigSecrets.ps1 deleted or moved?"
         })
     }
 }
