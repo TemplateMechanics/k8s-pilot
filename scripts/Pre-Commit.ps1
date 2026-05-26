@@ -79,31 +79,29 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 $repoRoot = Split-Path -LiteralPath $PSScriptRoot -Parent
 
-# Anchor at the repo root so relative paths (config/, examples/) resolve
-# consistently regardless of where the operator invoked the script from.
-# Wrap the body in try/finally so an unexpected terminating error
-# (under -Stop) cannot leave the caller's working directory at
-# $repoRoot. Set $pushed=true ONLY immediately after Push-Location
-# succeeds so the early-exit path above (pwsh missing) — which runs
-# BEFORE this Push-Location — can't interact with this flag.
-$pushed = $false
-Push-Location -LiteralPath $repoRoot
-$pushed = $true
-try {
-
-# Resolve the PowerShell host once. `pwsh` is required (the wrappers
-# target PS 7+); we run each child script as a SUBPROCESS via -File so
-# that the child's `exit <code>` does not terminate this orchestrator.
-# Avoid the null-conditional `?.` operator here so the script at least
-# parses on Windows PowerShell 5.1 (where this check would otherwise
-# fail before producing the intended error message). Do this BEFORE
-# Push-Location so the early-exit path doesn't have to pop the stack.
+# Resolve the PowerShell host BEFORE Push-Location. `pwsh` is required
+# (the wrappers target PS 7+); we run each child script as a SUBPROCESS
+# via -File so that the child's `exit <code>` does not terminate this
+# orchestrator. Avoid the null-conditional `?.` operator here so the
+# script at least parses on Windows PowerShell 5.1 (where this check
+# would otherwise fail before producing the intended error message).
 $pwshCmd  = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue
 $pwshPath = if ($pwshCmd) { $pwshCmd.Source } else { $null }
 if (-not $pwshPath) {
     Write-Error "pwsh (PowerShell 7+) not found in PATH. Install pwsh — the wrappers target PS 7."
     exit 1
 }
+
+# Anchor at the repo root so relative paths (config/, examples/) resolve
+# consistently regardless of where the operator invoked the script from.
+# Wrap the body in try/finally so an unexpected terminating error
+# (under -Stop) cannot leave the caller's working directory at
+# $repoRoot. $pushed is set after Push-Location succeeds and read in
+# the finally block so we only pop if we actually pushed.
+$pushed = $false
+Push-Location -LiteralPath $repoRoot
+$pushed = $true
+try {
 
 # Resolve default ManifestPaths if not provided: every directory under
 # examples/ that contains a kustomization.yaml.
