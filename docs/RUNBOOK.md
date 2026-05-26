@@ -11,13 +11,15 @@ gotchas), see [`skills/kubernetes/SKILL.md`](../skills/kubernetes/SKILL.md).
 
 ## Diff/apply pairing
 
-### `Invoke-KubectlApply.ps1` exits 4 with "metadata context does not match"
+### `Invoke-KubectlApply.ps1` throws "Diff metadata records context ... Refusing to apply a diff to a different cluster"
 
 **Cause**: the diff was rendered against a different `-Context` than
 the one passed to apply.
 
-**Fix**: re-run `Invoke-KubectlDiff.ps1 -Context <intended>` to
-produce a fresh diff artifact, then apply it.
+**Fix**: re-run `Invoke-KubectlDiff.ps1 -Path <kustomize-dir>
+-Context <intended>` to produce a fresh diff artifact, then apply
+it. The wrapper is `throw`-based (not `exit 4`), so PowerShell will
+terminate with its default error exit code.
 
 ### `Invoke-HelmUpgrade.ps1` exits 4 with "sha mismatch" on the values file
 
@@ -36,11 +38,13 @@ to bump the release revision for nothing.
 **Fix**: make the actual change you want to apply in the chart or
 values, re-run `Invoke-HelmDiff.ps1`, then upgrade.
 
-### `Invoke-FluxReconcile.ps1` exits 4 with "pathContentSha256 sha mismatch"
+### `Invoke-FluxReconcile.ps1` exits 4 with "Source path '<path>' has changed since the diff was produced (sha mismatch)"
 
 **Cause**: the source path (the directory the Flux Kustomization
-points at) was edited after the diff. Same drift protection as the
-Helm case.
+points at) was edited after the diff. The wrapper recomputes the
+content hash via `Get-PathContentHash` and refuses to reconcile
+against a stale `pathContentSha256` in the metadata sidecar — same
+drift protection as the Helm case.
 
 **Fix**: re-run `Invoke-FluxDiff.ps1 -Kustomization <name> -Path
 <path> -Context <ctx>`, then reconcile.

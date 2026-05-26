@@ -1,10 +1,12 @@
 # Security scanning
 
 This doc explains which scanners the harness wraps, what each one
-catches, and how they fit into the pre-commit / mutation flow. None
-of these scanners run in CI (k8s-pilot is local-only by design — see
-[BRANCH-WORKFLOW.md](BRANCH-WORKFLOW.md)). They run inside
-`scripts/Validate-Manifests.ps1` and `scripts/Pre-Commit.ps1`.
+catches, and how they fit into the validation flow. None of these
+scanners run in CI (k8s-pilot is local-only by design — see
+[BRANCH-WORKFLOW.md](BRANCH-WORKFLOW.md)). Today they run inside
+`scripts/Validate-Manifests.ps1`. The Pre-Commit orchestrator
+(`scripts/Pre-Commit.ps1`) is planned in PR 12 and will wire the
+validator + the MCP secret scanner into a single pre-push gate.
 
 ## What is scanned
 

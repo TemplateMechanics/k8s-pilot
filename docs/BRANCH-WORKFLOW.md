@@ -9,18 +9,21 @@ human contributors and AI agents alike.
 
 - `main` is the single long-lived branch. All changes land there via
   squash merge from a feature branch.
-- Feature branches use the pattern `pr/NN-short-slug` for the planned
-  PRs in the roadmap, or `feat/<slug>` / `fix/<slug>` for ad-hoc work.
+- Feature branches use the pattern `pr/NN-short-slug` for the
+  numbered PRs in the README roadmap (e.g. `pr/12-pre-commit`), or
+  `feat/<slug>` / `fix/<slug>` for ad-hoc work.
 - No `develop`, no `release/*`, no GitFlow. Trunk-based.
 
 ## PR lifecycle
 
 1. **Branch from `main`** (`git checkout main && git pull && git
-   checkout -b pr/<slug>`).
+   checkout -b pr/NN-short-slug` for a roadmap PR, or
+   `feat/<slug>` for ad-hoc work).
 2. **Make the change** following the relevant agent persona and the
-   skill (`skills/kubernetes/SKILL.md`). Run validators locally; the
-   pre-commit gate (`scripts/Pre-Commit.ps1`) will run the
-   minimum set automatically.
+   skill (`skills/kubernetes/SKILL.md`). Run validators locally via
+   `scripts/Validate-Manifests.ps1` on rendered manifests. Once
+   `scripts/Pre-Commit.ps1` lands (PR 12) it will orchestrate the
+   minimum set automatically as a pre-push gate.
 3. **Commit** using Conventional Commits with one of the scopes from
    [CONTRIBUTING.md](../CONTRIBUTING.md).
 4. **Push** the branch and **open a PR** via `gh pr create --fill`
@@ -86,7 +89,8 @@ open and reply explaining why.
 
 ## The autonomous PR loop
 
-The harness was built (PRs #1–#12) using an autonomous loop:
+The harness was built via an autonomous loop across the README
+roadmap PRs:
 
 1. The agent creates a branch, makes a focused change, commits, pushes,
    opens a PR with `gh pr create`, and requests Copilot review.
@@ -108,7 +112,8 @@ This is documented at
 ## Hard rules that constrain the loop
 
 - **No GitHub Actions** in this repo. The owner is conserving Actions
-  minutes; validation is local-only via `scripts/Pre-Commit.ps1`.
+  minutes; validation is local-only via `scripts/Validate-Manifests.ps1`
+  (and `scripts/Pre-Commit.ps1` once that lands in PR 12).
 - **No `--no-verify` on commits**, no `--force` on pushes to `main`,
   no skipping hooks. If a hook fails, fix the underlying issue.
 - **Squash-merge only**. The PR title becomes the squash commit
