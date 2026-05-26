@@ -200,8 +200,14 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
             # a real path. If nothing in the output is a path, fall back
             # to the last non-empty line and let Validate-Manifests fail
             # loudly with a missing-path error.
+            # Take the last 5 non-empty lines, then reverse the array
+            # so the loop walks newest -> oldest. Select-Object -Last
+            # alone preserves original order, which would pick an
+            # earlier existing path before the actually-final one.
             $rendered = $null
-            foreach ($line in @($renderedLines | Where-Object { $_ } | Select-Object -Last 5)) {
+            $tail = @($renderedLines | Where-Object { $_ } | Select-Object -Last 5)
+            [array]::Reverse($tail)
+            foreach ($line in $tail) {
                 $candidate = ([string]$line).Trim()
                 if ($candidate -and (Test-Path -LiteralPath $candidate)) {
                     $rendered = $candidate
