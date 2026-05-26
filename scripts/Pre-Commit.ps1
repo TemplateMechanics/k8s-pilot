@@ -268,7 +268,11 @@ if (-not $SkipMcpSecretScan) {
         }
         $results.Add([pscustomobject]@{
             step     = 'mcp-secret-scan'
-            path     = '.vscode/mcp*.json'
+            # Report the actual paths the scanner scans by default
+            # (kept in sync with Test-McpConfigSecrets.ps1 -Paths
+            # default). The previous '.vscode/mcp*.json' glob string
+            # was misleading — this script does NOT glob.
+            path     = '.vscode/mcp.json + .vscode/mcp.servers.catalog.json'
             exitCode = $mcpExitCode
             notes    = switch ($mcpExitCode) {
                 0 { 'clean' }
