@@ -121,13 +121,19 @@ if (-not $ManifestPaths -or $ManifestPaths.Count -eq 0) {
     }
 }
 
-$results = New-Object System.Collections.Generic.List[pscustomobject]
+# Use a non-generic ArrayList: 'New-Object System.Collections.Generic.List[pscustomobject]'
+# relies on the 'pscustomobject' type accelerator being expanded inside
+# a generic-type bracket context, which is unreliable across PowerShell
+# versions and can fail at runtime with 'type not found'. ArrayList
+# stores objects without a generic type parameter and accepts
+# pscustomobject instances directly.
+$results = New-Object System.Collections.ArrayList
 
 # Step 1: per-path Validate-Manifests
 if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
     foreach ($p in $ManifestPaths) {
         if (-not (Test-Path -LiteralPath $p)) {
-            $results.Add([pscustomobject]@{
+            [void]$results.Add([pscustomobject]@{
                 step     = 'validate-manifests'
                 path     = $p
                 exitCode = 1
@@ -145,7 +151,7 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
         $targetForValidator = $p
         if ($isKustomize) {
             if (-not $Context) {
-                $results.Add([pscustomobject]@{
+                [void]$results.Add([pscustomobject]@{
                     step     = 'kustomize-build'
                     path     = $p
                     exitCode = 1
@@ -184,7 +190,7 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
                         $errSnippet = $errSnippet.Substring(0, 240) + '…'
                     }
                 }
-                $results.Add([pscustomobject]@{
+                [void]$results.Add([pscustomobject]@{
                     step     = 'kustomize-build'
                     path     = $p
                     exitCode = $buildExit
@@ -218,7 +224,7 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
                 $rendered = (@($renderedLines | Where-Object { $_ }) | Select-Object -Last 1)
             }
             $targetForValidator = $rendered
-            $results.Add([pscustomobject]@{
+            [void]$results.Add([pscustomobject]@{
                 step     = 'kustomize-build'
                 path     = $p
                 exitCode = 0
@@ -239,7 +245,7 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
                 Write-Information "  [validate-manifests:$targetForValidator] $line" -InformationAction Continue
             }
         }
-        $results.Add([pscustomobject]@{
+        [void]$results.Add([pscustomobject]@{
             step     = 'validate-manifests'
             path     = $targetForValidator
             exitCode = $validateExit
@@ -266,7 +272,7 @@ if (-not $SkipMcpSecretScan) {
                 Write-Information "  [mcp-secret-scan] $line" -InformationAction Continue
             }
         }
-        $results.Add([pscustomobject]@{
+        [void]$results.Add([pscustomobject]@{
             step     = 'mcp-secret-scan'
             # Report the actual paths the scanner scans by default
             # (kept in sync with Test-McpConfigSecrets.ps1 -Paths
@@ -286,7 +292,7 @@ if (-not $SkipMcpSecretScan) {
         # The scanner script should ship with the repo (PR 9). If it's
         # missing, log a result row so the gate doesn't silently exit
         # 'success' when a step the operator expected to run is gone.
-        $results.Add([pscustomobject]@{
+        [void]$results.Add([pscustomobject]@{
             step     = 'mcp-secret-scan'
             path     = $mcpScanner
             exitCode = 1
