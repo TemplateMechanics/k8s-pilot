@@ -81,12 +81,22 @@ $repoRoot = Split-Path -LiteralPath $PSScriptRoot -Parent
 
 # Anchor at the repo root so relative paths (config/, examples/) resolve
 # consistently regardless of where the operator invoked the script from.
+# Wrap the body in try/finally so an unexpected terminating error
+# (under -Stop) cannot leave the caller's working directory at
+# $repoRoot. Pop-Location at the end (success) AND from finally
+# (any failure) — Pop-Location is a no-op if the stack is empty.
 Push-Location -LiteralPath $repoRoot
+$pushed = $true
+try {
 
 # Resolve the PowerShell host once. `pwsh` is required (the wrappers
 # target PS 7+); we run each child script as a SUBPROCESS via -File so
 # that the child's `exit <code>` does not terminate this orchestrator.
-$pwshPath = (Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue)?.Source
+# Avoid the null-conditional `?.` operator here so the script at least
+# parses on Windows PowerShell 5.1 (where this check would otherwise
+# fail before producing the intended error message).
+$pwshCmd  = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue
+$pwshPath = if ($pwshCmd) { $pwshCmd.Source } else { $null }
 if (-not $pwshPath) {
     Pop-Location
     Write-Error "pwsh (PowerShell 7+) not found in PATH. Install pwsh — the wrappers target PS 7."
@@ -145,14 +155,25 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
             }
             $kustomizeBuild = Join-Path $PSScriptRoot 'kubectl/Invoke-KustomizeBuild.ps1'
             # Run as subprocess so the child's `exit` does not kill us.
-            $renderedJson = & $pwshPath -NoProfile -File $kustomizeBuild -Path $p -Context $Context 2>$null
-            $buildExit = $LASTEXITCODE
+            # Capture stderr to a temp file (not 2>$null) so we can
+            # surface the actual error text — child wrappers stream
+            # diagnostics to stderr.
+            $childErr = [System.IO.Path]::GetTempFileName()
+            try {
+                $renderedJson = & $pwshPath -NoProfile -File $kustomizeBuild -Path $p -Context $Context 2>$childErr
+                $buildExit = $LASTEXITCODE
+                $childErrText = Get-Content -LiteralPath $childErr -Raw -ErrorAction SilentlyContinue
+            }
+            finally {
+                Remove-Item -LiteralPath $childErr -Force -ErrorAction SilentlyContinue
+            }
             if ($buildExit -ne 0) {
+                $errSnippet = if ($childErrText) { $childErrText.Trim() } else { '' }
                 $results.Add([pscustomobject]@{
                     step     = 'kustomize-build'
                     path     = $p
                     exitCode = $buildExit
-                    notes    = "Render failed (exit $buildExit)."
+                    notes    = "Render failed (exit $buildExit): $errSnippet"
                 })
                 continue
             }
@@ -214,12 +235,23 @@ $summary | ConvertTo-Json -Depth 5
 
 # Human-readable per-step lines on Information.
 foreach ($r in $results) {
-    $marker = if ($r.exitCode -eq 0) { 'PASS' } else { 'FAIL' }
+    # SKIP (not FAIL) for mcp-secret-scan exit 2 (no MCP files
+    # present). The overall exit-code logic below already excludes
+    # this from the failure count.
+    $marker = if ($r.exitCode -eq 0) { 'PASS' }
+              elseif ($r.step -eq 'mcp-secret-scan' -and $r.exitCode -eq 2) { 'SKIP' }
+              else { 'FAIL' }
     Write-Information ("{0,4}  {1,-24}  {2}  {3}" -f $marker, $r.step, $r.path, $r.notes) -InformationAction Continue
 }
 
 # Exit codes.
-Pop-Location
+}
+finally {
+    if ($pushed) {
+        Pop-Location -ErrorAction SilentlyContinue
+        $pushed = $false
+    }
+}
 
 if ($results.Count -eq 0) {
     Write-Warning "No pre-commit steps ran (all skipped or nothing to validate)."
