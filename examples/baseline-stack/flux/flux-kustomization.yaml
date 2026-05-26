@@ -1,0 +1,27 @@
+apiVersion: kustomize.toolkit.fluxcd.io/v1
+kind: Kustomization
+metadata:
+  name: baseline
+  namespace: flux-system
+spec:
+  interval: 10m
+  path: ./examples/baseline-stack/kustomize/overlays/dev
+  # prune is INTENTIONALLY false here. The kustomize base includes a
+  # Namespace resource (baseline). If prune were true and this Flux
+  # Kustomization were deleted (or stopped emitting the namespace),
+  # Flux would delete the Namespace and ALL workloads inside it — a
+  # blast radius surprising for a routine cleanup. Production users
+  # who want pruning should split the namespace into a separate Flux
+  # Kustomization (lifecycled separately) before flipping this to true.
+  prune: false
+  sourceRef:
+    kind: GitRepository
+    name: baseline-stack
+  targetNamespace: baseline
+  timeout: 5m
+  wait: true
+  healthChecks:
+    - apiVersion: apps/v1
+      kind: Deployment
+      name: baseline-web
+      namespace: baseline

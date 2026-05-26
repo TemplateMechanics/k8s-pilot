@@ -1,0 +1,17 @@
+# Default values that produce a valid minimal install on an empty namespace.
+replicaCount: 1
+
+image:
+  repository: nginxinc/nginx-unprivileged
+  tag: "1.27-alpine"
+  pullPolicy: IfNotPresent
+
+resources:
+  requests: { cpu: 50m, memory: 32Mi }
+  limits:   { cpu: 200m, memory: 64Mi }
+
+content:
+  indexHtml: |
+    <!doctype html>
+    <html><head><title>baseline-stack</title></head>
+    <body><h1>k8s-pilot baseline-stack (helm)</h1></body></html>

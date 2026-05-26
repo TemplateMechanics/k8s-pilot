@@ -1,0 +1,41 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: baseline
+  namespace: argocd
+  # The resources-finalizer is INTENTIONALLY omitted in this example
+  # because the kustomize base creates the `baseline` Namespace. With
+  # the finalizer, deleting this Application would cascade-delete the
+  # Namespace and every workload inside it — a blast radius surprising
+  # for a learning example. Add the finalizer back in a production
+  # fork once the Namespace is managed elsewhere:
+  #   finalizers:
+  #     - resources-finalizer.argocd.argoproj.io
+spec:
+  project: baseline-stack
+  source:
+    repoURL: https://github.com/TemplateMechanics/k8s-pilot.git
+    # IMPORTANT: replace this with an immutable commit SHA or tag BEFORE
+    # applying this Application. Kubernetes will accept the CR as-is
+    # (it's a valid string); Argo CD will then mark the Application
+    # Unknown/Failed when it cannot resolve this ref in git. That
+    # downstream failure is intentional — it surfaces the unfilled
+    # placeholder loudly instead of letting the Application sync
+    # against a moving branch. See CLAUDE.md R1 and
+    # agents/argocd.agent.md for the audit-trail rationale.
+    targetRevision: REPLACE_WITH_COMMIT_SHA_OR_TAG_BEFORE_APPLY
+    path: examples/baseline-stack/kustomize/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: baseline
+  syncPolicy:
+    # Manual sync by default. Enable automated.* deliberately.
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff: { duration: 5s, factor: 2, maxDuration: 3m }

@@ -1,0 +1,20 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+# tier MUST be metadata-only (includeSelectors: false). If it became
+# part of the Deployment selector, switching tier=dev <-> tier=staging
+# would try to mutate an immutable selector and the apply would fail.
+labels:
+  - includeSelectors: false
+    pairs:
+      tier: dev
+
+patches:
+  - target: { kind: Deployment, name: baseline-web }
+    patch: |-
+      - op: replace
+        path: /spec/replicas
+        value: 1

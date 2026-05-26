@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}
+  labels: {{ include "baseline.labels" . | nindent 4 }}
+# Not immutable — see kustomize/base/configmap.yaml for the same
+# rationale (this example is meant to be edited and re-applied).
+data:
+  index.html: |-
+{{ .Values.content.indexHtml | indent 4 }}

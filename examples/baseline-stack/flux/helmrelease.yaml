@@ -1,0 +1,38 @@
+# NOTE: this HelmRelease is namespaced to `baseline`. Apply it only
+# AFTER the `baseline` Namespace exists. Use the namespace-only
+# kustomize wrapper at examples/baseline-stack/kustomize/namespace-only
+# (NOT kustomize/overlays/dev, which would also install the
+# kustomize-managed workload and conflict with the Helm release). On a
+# fresh cluster, applying this manifest before the Namespace exists
+# will fail because Kubernetes rejects namespaced objects whose
+# namespace doesn't exist.
+#
+# To install this HelmRelease via the harness, use the kustomize
+# wrapper at examples/baseline-stack/flux/install-helmrelease/ — that
+# directory bundles the GitRepository source needed by the HelmRelease.
+#
+# This file is the ALTERNATIVE reconciliation path to
+# flux-kustomization.yaml — apply one or the other, not both.
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: baseline
+  namespace: baseline
+spec:
+  interval: 10m
+  chart:
+    spec:
+      chart: ./examples/baseline-stack/helm
+      sourceRef:
+        kind: GitRepository
+        name: baseline-stack
+        namespace: flux-system
+  targetNamespace: baseline
+  releaseName: baseline
+  install:
+    remediation: { retries: 0 }
+  upgrade:
+    remediation: { retries: 0, remediateLastFailure: true }
+    cleanupOnFail: true
+  values:
+    replicaCount: 1

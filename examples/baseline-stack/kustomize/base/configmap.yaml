@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: baseline-web
+# immutable is intentionally NOT set on this example because the point
+# of baseline-stack is to be edited and re-applied repeatedly while
+# learning the wrapper flow. SKILL.md §2.1 recommends immutable: true
+# for shipped/production config — set it once your content stops
+# changing every iteration.
+data:
+  index.html: |
+    <!doctype html>
+    <html><head><title>baseline-stack</title></head>
+    <body><h1>k8s-pilot baseline-stack</h1>
+    <p>If you can read this, the wrapper flow worked end-to-end.</p>
+    </body></html>
