@@ -193,8 +193,24 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
                 continue
             }
             # The script writes the rendered path to its success stream
-            # as its last line; take the last non-empty line as the path.
-            $rendered = @($renderedLines) | Where-Object { $_ } | Select-Object -Last 1
+            # as its last line. Defensively walk the lines in reverse
+            # and take the first one that actually exists on disk —
+            # any informational text the child emits via Write-Output
+            # (or accidentally pipes from a sub-call) won't validate as
+            # a real path. If nothing in the output is a path, fall back
+            # to the last non-empty line and let Validate-Manifests fail
+            # loudly with a missing-path error.
+            $rendered = $null
+            foreach ($line in @($renderedLines | Where-Object { $_ } | Select-Object -Last 5)) {
+                $candidate = ([string]$line).Trim()
+                if ($candidate -and (Test-Path -LiteralPath $candidate)) {
+                    $rendered = $candidate
+                    break
+                }
+            }
+            if (-not $rendered) {
+                $rendered = (@($renderedLines | Where-Object { $_ }) | Select-Object -Last 1)
+            }
             $targetForValidator = $rendered
             $results.Add([pscustomobject]@{
                 step     = 'kustomize-build'
@@ -272,7 +288,9 @@ if (-not $SkipMcpSecretScan) {
 # Emit structured summary on stdout.
 $summary = [pscustomobject]@{
     repoRoot  = $repoRoot
-    timestamp = (Get-Date -AsUTC).ToString('o')
+    # ToUniversalTime() is cross-version; Get-Date -AsUTC is PS 7+ only
+    # and would fail at parse-time on Windows PowerShell 5.1.
+    timestamp = (Get-Date).ToUniversalTime().ToString('o')
     steps     = $results
 }
 $summary | ConvertTo-Json -Depth 5
