@@ -83,8 +83,10 @@ $repoRoot = Split-Path -LiteralPath $PSScriptRoot -Parent
 # consistently regardless of where the operator invoked the script from.
 # Wrap the body in try/finally so an unexpected terminating error
 # (under -Stop) cannot leave the caller's working directory at
-# $repoRoot. Pop-Location at the end (success) AND from finally
-# (any failure) — Pop-Location is a no-op if the stack is empty.
+# $repoRoot. Set $pushed=true ONLY immediately after Push-Location
+# succeeds so the early-exit path above (pwsh missing) — which runs
+# BEFORE this Push-Location — can't interact with this flag.
+$pushed = $false
 Push-Location -LiteralPath $repoRoot
 $pushed = $true
 try {
@@ -94,11 +96,11 @@ try {
 # that the child's `exit <code>` does not terminate this orchestrator.
 # Avoid the null-conditional `?.` operator here so the script at least
 # parses on Windows PowerShell 5.1 (where this check would otherwise
-# fail before producing the intended error message).
+# fail before producing the intended error message). Do this BEFORE
+# Push-Location so the early-exit path doesn't have to pop the stack.
 $pwshCmd  = Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue
 $pwshPath = if ($pwshCmd) { $pwshCmd.Source } else { $null }
 if (-not $pwshPath) {
-    Pop-Location
     Write-Error "pwsh (PowerShell 7+) not found in PATH. Install pwsh — the wrappers target PS 7."
     exit 1
 }
@@ -205,11 +207,18 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
         }
 
         $validate = Join-Path $PSScriptRoot 'Validate-Manifests.ps1'
-        # Stream the child's stdout (its JSON summary + Validate-Manifests'
-        # human-readable lines) directly to our parent's streams so the
-        # operator sees WHY a validation failed, not just the FAIL marker.
-        & $pwshPath -NoProfile -File $validate -Path $targetForValidator
+        # Capture the child's stdout (its JSON summary) into a variable
+        # and route it to the parent's Information stream so it does
+        # NOT collide with this orchestrator's own structured JSON
+        # summary on stdout. Stderr is forwarded as-is (Information /
+        # Warning / Error from the child).
+        $validateOut = & $pwshPath -NoProfile -File $validate -Path $targetForValidator
         $validateExit = $LASTEXITCODE
+        foreach ($line in @($validateOut)) {
+            if ($null -ne $line -and $line -ne '') {
+                Write-Information "  [validate-manifests:$targetForValidator] $line" -InformationAction Continue
+            }
+        }
         $results.Add([pscustomobject]@{
             step     = 'validate-manifests'
             path     = $targetForValidator
@@ -226,11 +235,17 @@ if (-not $SkipMcpSecretScan) {
     $mcpScanner = Join-Path $PSScriptRoot 'mcp/Test-McpConfigSecrets.ps1'
     if (Test-Path -LiteralPath $mcpScanner -PathType Leaf) {
         # Subprocess for the same reason — child's `exit` shouldn't
-        # take down the orchestrator. Stream stdout (the scanner's
-        # per-line warnings) directly to the parent so the operator
-        # sees WHICH file had the suspected secret.
-        & $pwshPath -NoProfile -File $mcpScanner
+        # take down the orchestrator. Capture stdout and route to
+        # Information so the per-line warnings reach the operator
+        # without colliding with the orchestrator's JSON summary on
+        # stdout.
+        $mcpOut = & $pwshPath -NoProfile -File $mcpScanner
         $mcpExitCode = $LASTEXITCODE
+        foreach ($line in @($mcpOut)) {
+            if ($null -ne $line -and $line -ne '') {
+                Write-Information "  [mcp-secret-scan] $line" -InformationAction Continue
+            }
+        }
         $results.Add([pscustomobject]@{
             step     = 'mcp-secret-scan'
             path     = '.vscode/mcp*.json'
