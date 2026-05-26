@@ -66,6 +66,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   - `flux/gitrepository.yaml` + `flux/flux-kustomization.yaml` (named to avoid collision with the kustomize tool's `kustomization.yaml` convention) + alternative `flux/helmrelease.yaml` + two kustomize wrappers (`flux/install-kustomization/` and `flux/install-helmrelease/`) for the two reconciliation paths.
   - `README.md` with copy-pasteable wrapper invocations for kubectl / helm / argocd / flux / multi-cluster.
 
+- `docs/MULTI-CLUSTER.md`: full reference for `config/clusters.yaml`, the selector language, the prod-exclusion rule (R4) with the two opt-in mechanisms, wrapper enumeration, failure semantics, required yq dependency, operator workflow, and anti-patterns.
+- `docs/BRANCH-WORKFLOW.md`: branch model, PR lifecycle, how to request the Copilot reviewer via REST `/requested_reviewers` (not gh pr edit), thread resolution via GraphQL `resolveReviewThread`, the autonomous PR loop the harness was built with, and when to break out of the loop.
+- `docs/SECURITY-SCANNING.md`: what each scanner (kubeconform / kube-score / polaris / Test-McpConfigSecrets.ps1) catches, what is intentionally out of scope, how to suppress findings without weakening workloads, and the harness's threat-model assumptions.
+- `docs/RUNBOOK.md`: symptom-to-fix lookup for the common operational scenarios (diff/apply pairing failures, context-safety refusals, Argo CD HEAD rejection, Flux NotReady after reconcile, multi-cluster exitCode=-1 rows, helm-diff plugin missing, Helm --atomic rollback, MCP HOME unset on Windows).
+
 ### Planned
 - `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
 
