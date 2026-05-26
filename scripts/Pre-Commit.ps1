@@ -79,6 +79,20 @@ $PSDefaultParameterValues['Write-Error:ErrorAction'] = 'Continue'
 
 $repoRoot = Split-Path -LiteralPath $PSScriptRoot -Parent
 
+# Anchor at the repo root so relative paths (config/, examples/) resolve
+# consistently regardless of where the operator invoked the script from.
+Push-Location -LiteralPath $repoRoot
+
+# Resolve the PowerShell host once. `pwsh` is required (the wrappers
+# target PS 7+); we run each child script as a SUBPROCESS via -File so
+# that the child's `exit <code>` does not terminate this orchestrator.
+$pwshPath = (Get-Command pwsh -CommandType Application -ErrorAction SilentlyContinue)?.Source
+if (-not $pwshPath) {
+    Pop-Location
+    Write-Error "pwsh (PowerShell 7+) not found in PATH. Install pwsh — the wrappers target PS 7."
+    exit 1
+}
+
 # Resolve default ManifestPaths if not provided: every directory under
 # examples/ that contains a kustomization.yaml.
 if (-not $ManifestPaths -or $ManifestPaths.Count -eq 0) {
@@ -129,34 +143,40 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
                 })
                 continue
             }
-            try {
-                $rendered = & "$PSScriptRoot/kubectl/Invoke-KustomizeBuild.ps1" -Path $p -Context $Context
-                $targetForValidator = $rendered
+            $kustomizeBuild = Join-Path $PSScriptRoot 'kubectl/Invoke-KustomizeBuild.ps1'
+            # Run as subprocess so the child's `exit` does not kill us.
+            $renderedJson = & $pwshPath -NoProfile -File $kustomizeBuild -Path $p -Context $Context 2>$null
+            $buildExit = $LASTEXITCODE
+            if ($buildExit -ne 0) {
                 $results.Add([pscustomobject]@{
                     step     = 'kustomize-build'
                     path     = $p
-                    exitCode = 0
-                    notes    = "Rendered to $rendered"
-                })
-            }
-            catch {
-                $results.Add([pscustomobject]@{
-                    step     = 'kustomize-build'
-                    path     = $p
-                    exitCode = 1
-                    notes    = "Render failed: $($_.Exception.Message)"
+                    exitCode = $buildExit
+                    notes    = "Render failed (exit $buildExit)."
                 })
                 continue
             }
+            # The script writes the rendered path to its success stream
+            # as its last line; take the last non-empty line as the path.
+            $rendered = @($renderedJson) | Where-Object { $_ } | Select-Object -Last 1
+            $targetForValidator = $rendered
+            $results.Add([pscustomobject]@{
+                step     = 'kustomize-build'
+                path     = $p
+                exitCode = 0
+                notes    = "Rendered to $rendered"
+            })
         }
 
-        & "$PSScriptRoot/Validate-Manifests.ps1" -Path $targetForValidator | Out-Null
+        $validate = Join-Path $PSScriptRoot 'Validate-Manifests.ps1'
+        & $pwshPath -NoProfile -File $validate -Path $targetForValidator | Out-Null
+        $validateExit = $LASTEXITCODE
         $results.Add([pscustomobject]@{
             step     = 'validate-manifests'
             path     = $targetForValidator
-            exitCode = $LASTEXITCODE
-            notes    = if ($LASTEXITCODE -eq 0) { 'pass' }
-                       elseif ($LASTEXITCODE -eq 2) { 'no validators ran (install kubeconform / kube-score / polaris)' }
+            exitCode = $validateExit
+            notes    = if ($validateExit -eq 0) { 'pass' }
+                       elseif ($validateExit -eq 2) { 'no validators ran (install kubeconform / kube-score / polaris)' }
                        else { 'one or more validators failed' }
         })
     }
@@ -166,7 +186,9 @@ if (-not $SkipManifestValidation -and $ManifestPaths.Count -gt 0) {
 if (-not $SkipMcpSecretScan) {
     $mcpScanner = Join-Path $PSScriptRoot 'mcp/Test-McpConfigSecrets.ps1'
     if (Test-Path -LiteralPath $mcpScanner -PathType Leaf) {
-        & $mcpScanner | Out-Null
+        # Subprocess for the same reason — child's `exit` shouldn't
+        # take down the orchestrator.
+        & $pwshPath -NoProfile -File $mcpScanner | Out-Null
         $exit = $LASTEXITCODE
         $results.Add([pscustomobject]@{
             step     = 'mcp-secret-scan'
@@ -197,6 +219,8 @@ foreach ($r in $results) {
 }
 
 # Exit codes.
+Pop-Location
+
 if ($results.Count -eq 0) {
     Write-Warning "No pre-commit steps ran (all skipped or nothing to validate)."
     exit 2
