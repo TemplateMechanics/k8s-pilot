@@ -22,9 +22,10 @@ human contributors and AI agents alike.
 2. **Make the change** following the relevant agent persona and the
    skill (`skills/kubernetes/SKILL.md`). Run validators locally via
    `scripts/Validate-Manifests.ps1` on rendered manifests.
-   `scripts/Pre-Commit.ps1` orchestrates the minimum set automatically
-   as a pre-push gate (auto-renders kustomize directories under
-   `examples/` then runs `Validate-Manifests.ps1` + the MCP secret
+   `scripts/Pre-Commit.ps1 -Context <your-context>` orchestrates the
+   minimum set automatically as a pre-push gate (auto-renders kustomize
+   directories under `examples/` — `-Context` is required for that
+   render — then runs `Validate-Manifests.ps1` + the MCP secret
    scanner).
 3. **Commit** using Conventional Commits with one of the scopes from
    [CONTRIBUTING.md](../CONTRIBUTING.md).

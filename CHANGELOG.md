@@ -11,8 +11,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - README "target shape" status banner replaced with a release-status banner pointing at this CHANGELOG and `docs/BRANCH-WORKFLOW.md`.
 - README Layout table: dropped the "PR N" column and the never-created `docs/K8S-REFERENCE.md` row (its role is covered by `skills/kubernetes/SKILL.md`).
 
+### Changed
+- README / CONTRIBUTING / `docs/BRANCH-WORKFLOW.md`: every documented `./scripts/Pre-Commit.ps1` invocation now carries `-Context <your-context>`, matching the script's actual requirement when auto-rendering kustomize directories under `examples/` (the default path).
+- Removed the inline "a formal SECURITY.md / CODE_OF_CONDUCT.md will land in a later docs PR" promises from README and CONTRIBUTING so the v0.1.0 status banner ("every referenced path/script is present in `main`") is accurate. Disclosure routing is documented inline in the README Security section; the corresponding `.github/copilot-instructions.md` review rules that referenced the "planned, lands in a later docs PR" framing are dropped.
+
 ### Planned
-- `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) for the org-standard repo hygiene set.
+- `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) for the org-standard repo hygiene set — tracked here rather than promised inline in user-facing docs.
 
 ## [0.1.0] - 2026-05-26
 

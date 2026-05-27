@@ -74,7 +74,7 @@ User request
 3. Install the supporting CLIs: PowerShell 7+, `kubectl`, `kustomize`, `helm` (3.x), `argocd`, `flux`. Optional: `kubeconform`, `kube-score`, `polaris`, `trivy`.
 4. Talk to your AI assistant in natural language. It will read `CLAUDE.md` (or `.github/copilot-instructions.md`) and follow the operational sequence.
 5. Configure MCP via `.vscode/mcp.json`. The Kubernetes MCP server is the default discovery path.
-6. Before pushing changes, run `./scripts/Pre-Commit.ps1` for the local validation gate.
+6. Before pushing changes, run `./scripts/Pre-Commit.ps1 -Context <your-context>` for the local validation gate. The `-Context` is required because the gate auto-renders kustomize directories under `examples/`; pass any context in your kubeconfig (kustomize render itself is local and does not hit the cluster).
 
 ## The mandatory diff/apply discipline
 
@@ -155,4 +155,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). All PRs are reviewed by GitHub Copilot b
 
 ## Security
 
-A formal `SECURITY.md` disclosure policy will land in a later docs PR. Until then, please report any harness-level issue privately to the repository owner via GitHub.
+Please report any harness-level issue privately to the repository owner via GitHub.

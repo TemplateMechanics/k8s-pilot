@@ -23,8 +23,9 @@ git checkout -b feat/<short-description>
 
 # 3. Make your change. Keep diffs minimal and focused.
 
-# 4. Run the local pre-push gate
-pwsh ./scripts/Pre-Commit.ps1
+# 4. Run the local pre-push gate (-Context is required because the
+#    gate auto-renders kustomize directories under examples/)
+pwsh ./scripts/Pre-Commit.ps1 -Context <your-context>
 
 # 5. Commit using Conventional Commits
 git commit -m "feat(scripts): add kubectl diff wrapper"
@@ -74,4 +75,4 @@ For larger proposals (new tool integrations, structural changes), open a short d
 
 ## Code of conduct
 
-A formal `CODE_OF_CONDUCT.md` based on the Contributor Covenant v2.1 will land in a later docs PR. Until then, contributors are expected to act with respect, good faith, and professionalism in all project interactions.
+Contributors are expected to act with respect, good faith, and professionalism in all project interactions.

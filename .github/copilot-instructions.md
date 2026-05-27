@@ -48,7 +48,6 @@ When the user is writing Kubernetes manifests, Helm charts, or wrapper scripts:
 - `argocd app sync --force --prune` without explicit user confirmation per call.
 - `flux reconcile kustomization X --with-source` from chat — always go through the wrapper.
 - Workflow files under `.github/workflows/` (the repo owner is conserving GitHub Actions minutes).
-- Any change that adds `CODE_OF_CONDUCT.md` or `SECURITY.md` outside of the planned docs PR (README and CHANGELOG describe these as landing in a later docs PR without committing to a specific PR number; defer to the README for the current roadmap).
 
 ---
 
@@ -59,7 +58,6 @@ When Copilot is reviewing a PR in this repo:
 - Flag any new file that mutates cluster state without going through `scripts/<tool>/`.
 - Flag any `kubectl`/`helm`/`argocd`/`flux` invocation in a non-wrapper script that lacks an explicit `-Context` / `--kube-context` / `--server`.
 - Flag inconsistency between PR-N markers in different files (the README is the source of truth for the roadmap).
-- Flag references to `CODE_OF_CONDUCT.md` or `SECURITY.md` that are not framed as "planned, lands in a later docs PR".
 - Flag any change under `.github/workflows/`.
 
 When the diff is plumbing or docs, keep review comments terse and concrete.
