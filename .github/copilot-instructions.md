@@ -9,10 +9,10 @@ You are working inside **k8s-pilot**, an AI harness for Kubernetes platform engi
 ## TL;DR for Copilot
 
 1. **Diff before mutate, always.** Never suggest `kubectl apply`, `helm upgrade`, `argocd app sync`, or `flux reconcile` without first running the matching `Invoke-*Diff.ps1` wrapper and getting the user's approval of the diff output. The only exception is the **metadata-only mutation class** defined in `CLAUDE.md` §3.6 (`Invoke-HelmRollback.ps1`, `Invoke-FluxSuspend.ps1`, `Invoke-FluxResume.ps1`) — those are exempt from the diff-artifact rule but still require explicit `-Context`, `-Reason "<text>"`, and explicit user approval before execution.
-2. **Never invent API fields.** Consult `skills/kubernetes/SKILL.md` (planned, PR 3) or query the live cluster via MCP (planned, PR 9). If neither is available yet, ask the user to confirm the field name.
+2. **Never invent API fields.** Consult `skills/kubernetes/SKILL.md` or query the live cluster via MCP (`.vscode/mcp.json`). If neither is available, ask the user to confirm the field name.
 3. **Always name the context.** Every mutation wrapper takes `-Context <name>` or `-Cluster <name>`. Do not assume the ambient context.
 4. **Multi-cluster mutations require `-AcknowledgeMultiClusterMutation`** and exclude `tier=prod` from fan-out selectors by default.
-5. **No GitHub Actions workflows** in this repo at this time. Validation lives in PowerShell scripts: the individual validators (kubeconform / kube-score / polaris) belong in `scripts/Validate-Manifests.ps1` (planned, PR 4), and `scripts/Pre-Commit.ps1` (planned, PR 12) orchestrates them as the local pre-push gate. New validators land in `Validate-Manifests.ps1`; `Pre-Commit.ps1` only changes when the orchestration changes. Nothing goes under `.github/workflows/`.
+5. **No GitHub Actions workflows** in this repo at this time. Validation lives in PowerShell scripts: the individual validators (kubeconform / kube-score / polaris) belong in `scripts/Validate-Manifests.ps1`, and `scripts/Pre-Commit.ps1` orchestrates them as the local pre-push gate. New validators land in `Validate-Manifests.ps1`; `Pre-Commit.ps1` only changes when the orchestration changes. Nothing goes under `.github/workflows/`.
 
 ---
 
@@ -48,7 +48,6 @@ When the user is writing Kubernetes manifests, Helm charts, or wrapper scripts:
 - `argocd app sync --force --prune` without explicit user confirmation per call.
 - `flux reconcile kustomization X --with-source` from chat — always go through the wrapper.
 - Workflow files under `.github/workflows/` (the repo owner is conserving GitHub Actions minutes).
-- Any change that adds `CODE_OF_CONDUCT.md` or `SECURITY.md` outside of the planned docs PR (README and CHANGELOG describe these as landing in a later docs PR without committing to a specific PR number; defer to the README for the current roadmap).
 
 ---
 
@@ -59,7 +58,6 @@ When Copilot is reviewing a PR in this repo:
 - Flag any new file that mutates cluster state without going through `scripts/<tool>/`.
 - Flag any `kubectl`/`helm`/`argocd`/`flux` invocation in a non-wrapper script that lacks an explicit `-Context` / `--kube-context` / `--server`.
 - Flag inconsistency between PR-N markers in different files (the README is the source of truth for the roadmap).
-- Flag references to `CODE_OF_CONDUCT.md` or `SECURITY.md` that are not framed as "planned, lands in a later docs PR".
 - Flag any change under `.github/workflows/`.
 
 When the diff is plumbing or docs, keep review comments terse and concrete.

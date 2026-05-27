@@ -3,10 +3,10 @@
 This doc explains which scanners the harness wraps, what each one
 catches, and how they fit into the validation flow. None of these
 scanners run in CI (k8s-pilot is local-only by design — see
-[BRANCH-WORKFLOW.md](BRANCH-WORKFLOW.md)). Today they run inside
-`scripts/Validate-Manifests.ps1`. The Pre-Commit orchestrator
-(`scripts/Pre-Commit.ps1`) is planned in PR 12 and will wire the
-validator + the MCP secret scanner into a single pre-push gate.
+[BRANCH-WORKFLOW.md](BRANCH-WORKFLOW.md)). They run inside
+`scripts/Validate-Manifests.ps1`; the `scripts/Pre-Commit.ps1`
+orchestrator wires the validator and the MCP secret scanner into a
+single pre-push gate.
 
 ## What is scanned
 
@@ -15,7 +15,7 @@ validator + the MCP secret scanner into a single pre-push gate.
 | Manifest schema | [kubeconform](https://github.com/yannh/kubeconform) | Invalid API field types, unknown fields, missing required fields against a pinned Kubernetes API version. | `Validate-Manifests.ps1` |
 | Manifest quality | [kube-score](https://github.com/zegl/kube-score) | Missing resource limits, no readiness probe, root-running pods, missing labels, image-pull-policy issues. | `Validate-Manifests.ps1` |
 | Policy / hardening | [polaris](https://github.com/FairwindsOps/polaris) | Pod-level security policies (privileged, capabilities, securityContext, hostPID/hostNetwork, etc.). | `Validate-Manifests.ps1` |
-| MCP config secrets | `scripts/mcp/Test-McpConfigSecrets.ps1` | Inline credentials in `.vscode/mcp*.json` (token / password / api key / JWT shapes / AWS access key prefixes). `${env:VAR}` interpolation is the allowed pattern. | `Pre-Commit.ps1` (planned, PR 12) |
+| MCP config secrets | `scripts/mcp/Test-McpConfigSecrets.ps1` | Inline credentials in `.vscode/mcp*.json` (token / password / api key / JWT shapes / AWS access key prefixes). `${env:VAR}` interpolation is the allowed pattern. | `Pre-Commit.ps1` |
 
 ## What is NOT scanned
 

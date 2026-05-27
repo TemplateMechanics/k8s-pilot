@@ -7,6 +7,22 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
 ### Added
+- Post-roadmap docs cleanup: dropped "(planned, PR N)" markers across README, CONTRIBUTING, the agent personas, `config/clusters.yaml`, `docs/SECURITY-SCANNING.md`, `.github/copilot-instructions.md`, and `skills/kubernetes/SKILL.md` now that every referenced wrapper/doc/registry has landed.
+- README "target shape" status banner replaced with a release-status banner pointing at this CHANGELOG and `docs/BRANCH-WORKFLOW.md`.
+- README Layout table: dropped the "PR N" column and the never-created `docs/K8S-REFERENCE.md` row (its role is covered by `skills/kubernetes/SKILL.md`).
+
+### Changed
+- README / CONTRIBUTING / `docs/BRANCH-WORKFLOW.md`: every documented `./scripts/Pre-Commit.ps1` invocation now carries `-Context <your-context>`, matching the script's actual requirement when auto-rendering kustomize directories under `examples/` (the default path).
+- Removed the inline "a formal SECURITY.md / CODE_OF_CONDUCT.md will land in a later docs PR" promises from README and CONTRIBUTING so the v0.1.0 status banner ("every referenced path/script is present in `main`") is accurate. Disclosure routing is documented inline in the README Security section; the corresponding `.github/copilot-instructions.md` review rules that referenced the "planned, lands in a later docs PR" framing are dropped.
+
+### Planned
+- `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) for the org-standard repo hygiene set — tracked here rather than promised inline in user-facing docs.
+
+## [0.1.0] - 2026-05-26
+
+Initial 12-PR scaffolding roadmap. Repository made public after this release.
+
+### Added
 - Repository meta files: README, LICENSE, CHANGELOG, CONTRIBUTING, .gitignore, .gitattributes.
 - Target shape and 12-PR roadmap documented in README.
 - `CLAUDE.md` operational contract: diff-before-mutate discipline, hard rules, tool-family wrapper contracts, agent-selection guide.
@@ -57,7 +73,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `.vscode/mcp.servers.catalog.json`: catalog of vetted MCP servers (schemaVersion=1) with multiple launchers per server (`npx`, `docker`) and safety notes (read-only by intent; mutations stay in `scripts/<tool>/`).
 - `.vscode/schemas/mcp-servers-catalog.schema.json`: JSON Schema for the catalog (DNS-1123 id; required launcher kind/command).
 - `scripts/mcp/Start-KubernetesMcpServer.ps1`: launches the catalog-selected MCP server by picking the first available launcher (or one matching `-PreferredKind`). Forwards stdio.
-- `scripts/mcp/Test-McpConfigSecrets.ps1`: scans `.vscode/mcp*.json` for inlined secrets (token / password / api key / JWT shapes / AWS access key prefixes) — `${env:VAR}` interpolations are explicitly allowed. Will be wired into `Pre-Commit.ps1` in PR 12.
+- `scripts/mcp/Test-McpConfigSecrets.ps1`: scans `.vscode/mcp*.json` for inlined secrets (token / password / api key / JWT shapes / AWS access key prefixes) — `${env:VAR}` interpolations are explicitly allowed. Wired into `Pre-Commit.ps1` (PR 12).
 
 - `examples/baseline-stack/`: end-to-end wrapper-flow exercise. Minimal nginx-served static HTML deployable through every tool family:
   - `kustomize/base/` + overlays `dev/` (replicas=1) and `staging/` (replicas=3).
@@ -73,12 +89,5 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - `scripts/Pre-Commit.ps1`: local pre-push gate (CLAUDE.md R6). Orchestrates `Validate-Manifests.ps1` per kustomize directory (auto-renders first via `Invoke-KustomizeBuild.ps1`) + `Test-McpConfigSecrets.ps1`. Default `-ManifestPaths` discovers every directory under `examples/` that contains a `kustomization.yaml` or `kustomization.yml`. **Fail-late**: every step runs even after a prior step failed, so a single push surfaces every class of issue at once. Structured per-step JSON summary on stdout, human-readable PASS/FAIL on Information. Exit codes: 0 = all green (MCP scanner's "no config files" skip counted as green), 1 = any real failure, 2 = nothing ran.
 
-### Planned
-- `CODE_OF_CONDUCT.md` (Contributor Covenant v2.1) and `SECURITY.md` (disclosure policy) will land in a later docs PR.
-
-## [0.1.0] - TBD
-
-Initial harness scaffolding. See README for the target shape.
-
-[Unreleased]: https://github.com/TemplateMechanics/k8s-pilot/compare/main...HEAD
+[Unreleased]: https://github.com/TemplateMechanics/k8s-pilot/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/TemplateMechanics/k8s-pilot/releases/tag/v0.1.0

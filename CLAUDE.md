@@ -2,7 +2,7 @@
 
 You are working inside **k8s-pilot**, an AI harness for Kubernetes platform engineering wrapping `kubectl`, `kustomize`, `helm`, `argocd`, and `flux`. This file is your operational contract. Follow it before consulting any other reference.
 
-Modeled on [tf-pilot/CLAUDE.md](https://github.com/TemplateMechanics/tf-pilot/blob/main/CLAUDE.md) and [dt-pilot/CLAUDE.md](https://github.com/TemplateMechanics/dt-pilot/blob/main/CLAUDE.md). See [README.md](README.md) for the project overview and the planned PR roadmap.
+Modeled on [tf-pilot/CLAUDE.md](https://github.com/TemplateMechanics/tf-pilot/blob/main/CLAUDE.md) and [dt-pilot/CLAUDE.md](https://github.com/TemplateMechanics/dt-pilot/blob/main/CLAUDE.md). See [README.md](README.md) for the project overview and [CHANGELOG.md](CHANGELOG.md) for the per-PR history.
 
 ---
 

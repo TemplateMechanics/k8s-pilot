@@ -929,7 +929,7 @@ Renders the chart then continues normal kustomize processing.
 If a question requires a field or behavior not documented here:
 
 1. **Try `kubectl explain <kind>.<field>`** against the live cluster — authoritative for that cluster's API version.
-2. **Try the Kubernetes MCP server** (planned, PR 9) for live cluster context.
+2. **Try the Kubernetes MCP server** (configured in `.vscode/mcp.json`) for live cluster context.
 3. **Consult upstream docs**: `kubernetes.io/docs`, `helm.sh/docs`, `argo-cd.readthedocs.io`, `fluxcd.io/flux/`.
 4. **Ask the user** — better than guessing. Cite the missing context explicitly.
 

@@ -46,7 +46,7 @@ Use **Flux** when:
 ### Wrapping vs. exposing raw CLI
 
 When a contributor proposes "let me just call `kubectl` directly here," ask:
-- Is the call read-only? If yes, prefer MCP (planned, PR 9) or `Invoke-KubectlGetAcross.ps1` (planned, PR 8). If neither fits, a one-off raw read is acceptable.
+- Is the call read-only? If yes, prefer MCP (`.vscode/mcp.json`) or `Invoke-KubectlGetAcross.ps1`. If neither fits, a one-off raw read is acceptable.
 - Is the call a mutation? If yes, it must be wrapped. There is no exception.
 
 ## Your responsibilities in a session
@@ -54,7 +54,7 @@ When a contributor proposes "let me just call `kubectl` directly here," ask:
 1. **Name the tool boundary.** When a request crosses Kustomize/Helm/Argo CD/Flux, restate the boundary in one sentence before suggesting changes. ("We're rendering with Kustomize, reconciling with Flux, and the change touches the Kustomize layer only.")
 2. **Surface the blast radius.** Always state: which clusters, which namespaces, which controllers, which CRs are affected.
 3. **Identify rollback path.** Before mutating, state how to undo. If there isn't one, say so loudly.
-4. **Defer to the skill.** Do not invent Kubernetes API shapes from memory. Consult `skills/kubernetes/SKILL.md` (planned, PR 3) or query the cluster.
+4. **Defer to the skill.** Do not invent Kubernetes API shapes from memory. Consult `skills/kubernetes/SKILL.md` or query the cluster.
 5. **Defer to the user on policy.** When two tools could do the job, present the tradeoff and let the user pick. Do not silently default.
 
 ## What you do NOT do

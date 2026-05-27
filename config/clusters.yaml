@@ -3,7 +3,7 @@
 # Declares the named clusters the multi-cluster fan-out wrappers operate
 # on (scripts/multi-cluster/). The kubectl context for each cluster is
 # the source of truth — this file is metadata over your existing
-# kubeconfig contexts. See docs/MULTI-CLUSTER.md (planned, PR 11).
+# kubeconfig contexts. See docs/MULTI-CLUSTER.md.
 #
 # Safety contract (CLAUDE.md §3.5, R4):
 #   - Read fan-out (Get-Clusters / Invoke-*Across) honors -Selector.
