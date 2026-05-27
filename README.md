@@ -69,8 +69,6 @@ User request
 
 ## Quick start
 
-> **Note:** Most of these paths land in subsequent PRs. The Quick start is the steady-state experience.
-
 1. Fork this repository (recommended) or copy the harness into your Kubernetes platform repo.
 2. Open the project in VS Code with the [Kubernetes extension](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) installed.
 3. Install the supporting CLIs: PowerShell 7+, `kubectl`, `kustomize`, `helm` (3.x), `argocd`, `flux`. Optional: `kubeconform`, `kube-score`, `polaris`, `trivy`.
@@ -98,12 +96,12 @@ User request
 | You normally have to | k8s-pilot does for you |
 |---|---|
 | Memorize Kubernetes API fields per kind | MCP + skill reference provide live API/resource context |
-| Remember every validation/lint/security command | `./scripts/Validate-Manifests.ps1` (planned) runs kubeconform + kube-score + polaris |
-| Risk direct `kubectl apply` against the wrong context | `Invoke-KubectlApply.ps1` (planned) requires an explicit `-Context` and a saved diff |
-| Risk a blind `helm upgrade` | `Invoke-HelmUpgrade.ps1` (planned) requires the output of `Invoke-HelmDiff.ps1` |
-| Sync the wrong Argo CD revision | `Invoke-ArgocdAppSync.ps1` (planned) requires an explicit `-Revision` and a diff artifact |
-| Drift between `flux build` and what's reconciled | `Invoke-FluxReconcile.ps1` (planned) emits a build/diff/reconcile triplet |
-| Hand-poll many clusters for the same question | `scripts/multi-cluster/Invoke-KubectlGetAcross.ps1` (planned) fans out with a label selector and aggregates results |
+| Remember every validation/lint/security command | `./scripts/Validate-Manifests.ps1`  runs kubeconform + kube-score + polaris |
+| Risk direct `kubectl apply` against the wrong context | `Invoke-KubectlApply.ps1`  requires an explicit `-Context` and a saved diff |
+| Risk a blind `helm upgrade` | `Invoke-HelmUpgrade.ps1`  requires the output of `Invoke-HelmDiff.ps1` |
+| Sync the wrong Argo CD revision | `Invoke-ArgocdAppSync.ps1`  requires an explicit `-Revision` and a diff artifact |
+| Drift between `flux build` and what's reconciled | `Invoke-FluxReconcile.ps1`  emits a build/diff/reconcile triplet |
+| Hand-poll many clusters for the same question | `scripts/multi-cluster/Invoke-KubectlGetAcross.ps1`  fans out with a label selector and aggregates results |
 | Accidentally mutate many clusters at once | Multi-cluster mutations require `-AcknowledgeMultiClusterMutation` and exclude `tier=prod` unless explicitly named |
 | Manually maintain version-pinned reference docs | `skills/kubernetes/SKILL.md` is the single source of truth, refreshed per release |
 
