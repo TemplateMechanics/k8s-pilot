@@ -4,7 +4,7 @@
 
 Modeled on [TemplateMechanics/tf-pilot](https://github.com/TemplateMechanics/tf-pilot) and [TemplateMechanics/dt-pilot](https://github.com/TemplateMechanics/dt-pilot).
 
-> **Status:** This README describes the **target** shape of k8s-pilot. The repository is being built up across a series of small, reviewable PRs. Paths and scripts referenced below that are not yet present in the working tree are explicitly marked **(planned — lands in PR&nbsp;N)** and will be introduced in subsequent PRs.
+> **Status:** the 12-PR scaffolding roadmap is complete (`v0.1.0`). Every path and script referenced below is present in `main`. See [CHANGELOG.md](CHANGELOG.md) for the per-PR history of what landed and [docs/BRANCH-WORKFLOW.md](docs/BRANCH-WORKFLOW.md) for the autonomous PR loop used to build it.
 
 ## What problem does this solve?
 
@@ -12,14 +12,14 @@ LLMs are confidently wrong about Kubernetes. They invent API fields, skip `kubec
 
 It does this with three things:
 
-1. **Instructions** that tell the AI exactly how to behave on this codebase (`CLAUDE.md`, `.github/copilot-instructions.md`, `agents/kubernetes.agent.md` — **planned, lands in PR&nbsp;2**).
-2. **A single authoritative skill reference** the AI reads before editing (`skills/kubernetes/SKILL.md` — **planned, lands in PR&nbsp;3**).
-3. **Wrapped automation** the AI is required to use instead of typing `kubectl`/`helm`/`argocd`/`flux` directly (`scripts/*.ps1` — **planned, lands in PRs&nbsp;4–7**).
+1. **Instructions** that tell the AI exactly how to behave on this codebase (`CLAUDE.md`, `.github/copilot-instructions.md`, `agents/*.agent.md`).
+2. **A single authoritative skill reference** the AI reads before editing (`skills/kubernetes/SKILL.md`).
+3. **Wrapped automation** the AI is required to use instead of typing `kubectl`/`helm`/`argocd`/`flux` directly (`scripts/*.ps1`).
 
 It also includes:
 
-- A **multi-cluster registry and fan-out layer** so agents can search, diff, and report across many clusters at once while keeping mutations strictly per-cluster and tier-gated (`config/clusters.yaml`, `scripts/multi-cluster/*` — **planned, lands in PR&nbsp;8**).
-- A **Kubernetes MCP server integration** so agents can query a single cluster's context, resource graphs, and events with first-party tooling before mutating workloads (**planned, lands in PR&nbsp;9**).
+- A **multi-cluster registry and fan-out layer** so agents can search, diff, and report across many clusters at once while keeping mutations strictly per-cluster and tier-gated (`config/clusters.yaml`, `scripts/multi-cluster/*`).
+- A **Kubernetes MCP server integration** so agents can query a single cluster's context, resource graphs, and events with first-party tooling before mutating workloads (`.vscode/mcp.json`).
 
 ## Architecture
 
@@ -57,7 +57,7 @@ User request
 1. **Four-tool layered control plane**
    `kubectl` + `kustomize` for raw manifests, `helm` for chart-managed workloads, `argocd` and `flux` for GitOps reconciliation — all wrapped by a single consistent script contract (`Invoke-*` verbs, plan-before-apply discipline, structured output).
 2. **Plan-as-artifact discipline**
-   `Invoke-KubectlDiff.ps1`, `Invoke-HelmDiff.ps1`, and `Invoke-ArgocdAppDiff.ps1` (**planned, PRs 4–6**) emit structured diff artifacts that downstream apply/upgrade scripts require. This makes change review explicit and repeatable.
+   `Invoke-KubectlDiff.ps1`, `Invoke-HelmDiff.ps1`, and `Invoke-ArgocdAppDiff.ps1` emit structured diff artifacts that downstream apply/upgrade scripts require. This makes change review explicit and repeatable.
 3. **MCP-first reads, scripts-only writes**
    Agent workflows use MCP for live cluster context and wrappers for mutations to avoid direct, unsafe CLI behavior. The AI may never type `kubectl apply -f` or `helm upgrade` directly.
 4. **Context-pinning safety**
@@ -65,7 +65,7 @@ User request
 5. **GitOps tools as peers, not alternatives**
    Argo CD and Flux wrappers coexist. Examples demonstrate when each is appropriate (Argo CD for app-of-apps UI flows, Flux for Kustomize/Helm controller reconciliation).
 6. **Multi-cluster as a first-class operation**
-   A registry-backed fan-out layer (`config/clusters.yaml`, `scripts/multi-cluster/*.ps1` — planned, PR 8) lets the agent ask questions like "diff this kustomization across all `tier=staging` clusters" or "show me which clusters have CrashLoopBackOff pods in `team=payments`". Mutations are still strictly single-cluster per call unless the caller passes `-AcknowledgeMultiClusterMutation`, and `tier=prod` clusters are excluded from any fan-out by default.
+   A registry-backed fan-out layer (`config/clusters.yaml`, `scripts/multi-cluster/*.ps1`) lets the agent ask questions like "diff this kustomization across all `tier=staging` clusters" or "show me which clusters have CrashLoopBackOff pods in `team=payments`". Mutations are still strictly single-cluster per call unless the caller passes `-AcknowledgeMultiClusterMutation`, and `tier=prod` clusters are excluded from any fan-out by default.
 
 ## Quick start
 
@@ -75,8 +75,8 @@ User request
 2. Open the project in VS Code with the [Kubernetes extension](https://marketplace.visualstudio.com/items?itemName=ms-kubernetes-tools.vscode-kubernetes-tools) installed.
 3. Install the supporting CLIs: PowerShell 7+, `kubectl`, `kustomize`, `helm` (3.x), `argocd`, `flux`. Optional: `kubeconform`, `kube-score`, `polaris`, `trivy`.
 4. Talk to your AI assistant in natural language. It will read `CLAUDE.md` (or `.github/copilot-instructions.md`) and follow the operational sequence.
-5. Configure MCP via `.vscode/mcp.json` (**planned, PR 9**). The Kubernetes MCP server is the default discovery path.
-6. Before pushing changes, run `./scripts/Pre-Commit.ps1` (**planned, PR 12**) for the local validation gate.
+5. Configure MCP via `.vscode/mcp.json`. The Kubernetes MCP server is the default discovery path.
+6. Before pushing changes, run `./scripts/Pre-Commit.ps1` for the local validation gate.
 
 ## The mandatory diff/apply discipline
 
@@ -120,33 +120,32 @@ User request
 9. Agent runs the matching apply / upgrade / sync / reconcile wrapper.
 10. Pre-commit gate (`Pre-Commit.ps1`) re-validates before push.
 
-## Layout (target)
+## Layout
 
-| Path | Purpose | Status |
-|---|---|---|
-| `CLAUDE.md` | Instructions loaded by Claude Code | PR 2 |
-| `.github/copilot-instructions.md` | Instructions loaded by GitHub Copilot | PR 2 |
-| `agents/kubernetes.agent.md` | Conversational persona for raw `kubectl` + `kustomize` work | PR 2 |
-| `agents/helm.agent.md` | Persona for Helm chart authoring and upgrades | PR 2 |
-| `agents/argocd.agent.md` | Persona for Argo CD application management | PR 2 |
-| `agents/flux.agent.md` | Persona for Flux Kustomization and HelmRelease management | PR 2 |
-| `agents/chief-systems-engineer.agent.md` | Cross-tool architectural persona | PR 2 |
-| `agents/multi-cluster.agent.md` | Persona for multi-cluster fan-out queries and mutation safety | PR 8 |
-| `skills/kubernetes/SKILL.md` | Authoritative kubectl/kustomize/helm/argocd/flux reference | PR 3 |
-| `scripts/kubectl/` | kubectl + kustomize wrappers (diff/apply/rollout) | PR 4 |
-| `scripts/helm/` | helm wrappers (template/diff/upgrade/rollback) | PR 5 |
-| `scripts/argocd/` | argocd CLI wrappers (login/app diff/app sync) | PR 6 |
-| `scripts/flux/` | flux CLI wrappers (build/diff/reconcile) | PR 7 |
-| `config/clusters.yaml` + `config/clusters.schema.json` | Multi-cluster registry (named clusters, contexts, tiers, labels) | PR 8 |
-| `scripts/multi-cluster/` | Cross-cluster fan-out wrappers (`Get-Clusters.ps1`, `Invoke-KubectlGetAcross.ps1`, etc.) | PR 8 |
-| `.vscode/mcp.json` | Workspace MCP integration (Kubernetes MCP server) | PR 9 |
-| `examples/baseline-stack/` | End-to-end example covering all four tools + multi-cluster fan-out | PR 10 |
-| `docs/K8S-REFERENCE.md` | Deep Kubernetes API and workload reference | PR 11 |
-| `docs/MULTI-CLUSTER.md` | Multi-cluster registry, selection model, and mutation safety | PR 11 |
-| `docs/BRANCH-WORKFLOW.md` | Branch protection and required-check merge workflow | PR 11 |
-| `docs/SECURITY-SCANNING.md` | Trivy / kube-score / polaris policy guidance | PR 11 |
-| `docs/RUNBOOK.md` | Operational troubleshooting runbook | PR 11 |
-| `scripts/Pre-Commit.ps1` | Local pre-push validation gate | PR 12 |
+| Path | Purpose |
+|---|---|
+| `CLAUDE.md` | Instructions loaded by Claude Code |
+| `.github/copilot-instructions.md` | Instructions loaded by GitHub Copilot |
+| `agents/kubernetes.agent.md` | Conversational persona for raw `kubectl` + `kustomize` work |
+| `agents/helm.agent.md` | Persona for Helm chart authoring and upgrades |
+| `agents/argocd.agent.md` | Persona for Argo CD application management |
+| `agents/flux.agent.md` | Persona for Flux Kustomization and HelmRelease management |
+| `agents/chief-systems-engineer.agent.md` | Cross-tool architectural persona |
+| `agents/multi-cluster.agent.md` | Persona for multi-cluster fan-out queries and mutation safety |
+| `skills/kubernetes/SKILL.md` | Authoritative kubectl/kustomize/helm/argocd/flux reference (also covers what would have been a separate `K8S-REFERENCE.md`) |
+| `scripts/kubectl/` | kubectl + kustomize wrappers (diff/apply/rollout) |
+| `scripts/helm/` | helm wrappers (template/diff/upgrade/rollback) |
+| `scripts/argocd/` | argocd CLI wrappers (login/app diff/app sync) |
+| `scripts/flux/` | flux CLI wrappers (build/diff/reconcile/suspend/resume) |
+| `config/clusters.yaml` + `config/clusters.schema.json` | Multi-cluster registry (named clusters, contexts, tiers, labels) |
+| `scripts/multi-cluster/` | Cross-cluster fan-out wrappers (`Get-Clusters.ps1`, `Invoke-KubectlGetAcross.ps1`, `Invoke-HelmStatusAcross.ps1`) |
+| `.vscode/mcp.json` + `.vscode/mcp.servers.catalog.json` | Workspace MCP integration (Kubernetes MCP server) |
+| `examples/baseline-stack/` | End-to-end example covering all four tools + multi-cluster fan-out |
+| `docs/MULTI-CLUSTER.md` | Multi-cluster registry, selection model, and mutation safety |
+| `docs/BRANCH-WORKFLOW.md` | Branch model + the autonomous PR loop used to build the harness |
+| `docs/SECURITY-SCANNING.md` | kubeconform / kube-score / polaris orchestration + threat model |
+| `docs/RUNBOOK.md` | Symptom-to-fix runbook across all tool families |
+| `scripts/Pre-Commit.ps1` | Local pre-push validation gate |
 
 ## License
 
@@ -154,7 +153,7 @@ MIT. See [LICENSE](LICENSE).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). All PRs are reviewed by GitHub Copilot before merge as part of the autonomous PR loop documented in `docs/BRANCH-WORKFLOW.md` (**planned, PR 11**).
+See [CONTRIBUTING.md](CONTRIBUTING.md). All PRs are reviewed by GitHub Copilot before merge as part of the autonomous PR loop documented in [docs/BRANCH-WORKFLOW.md](docs/BRANCH-WORKFLOW.md).
 
 ## Security
 

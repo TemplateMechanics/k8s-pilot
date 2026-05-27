@@ -22,8 +22,10 @@ human contributors and AI agents alike.
 2. **Make the change** following the relevant agent persona and the
    skill (`skills/kubernetes/SKILL.md`). Run validators locally via
    `scripts/Validate-Manifests.ps1` on rendered manifests. Once
-   `scripts/Pre-Commit.ps1` lands (PR 12) it will orchestrate the
-   minimum set automatically as a pre-push gate.
+   `scripts/Pre-Commit.ps1` orchestrates the minimum set automatically
+   as a pre-push gate (auto-renders kustomize directories under
+   `examples/` then runs `Validate-Manifests.ps1` + the MCP secret
+   scanner).
 3. **Commit** using Conventional Commits with one of the scopes from
    [CONTRIBUTING.md](../CONTRIBUTING.md).
 4. **Push** the branch and **open a PR** via `gh pr create --fill`
@@ -113,7 +115,7 @@ This is documented at
 
 - **No GitHub Actions** in this repo. The owner is conserving Actions
   minutes; validation is local-only via `scripts/Validate-Manifests.ps1`
-  (and `scripts/Pre-Commit.ps1` once that lands in PR 12).
+  (orchestrated by `scripts/Pre-Commit.ps1`).
 - **No `--no-verify` on commits**, no `--force` on pushes to `main`,
   no skipping hooks. If a hook fails, fix the underlying issue.
 - **Squash-merge only**. The PR title becomes the squash commit

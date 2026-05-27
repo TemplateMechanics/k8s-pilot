@@ -6,7 +6,7 @@ Thanks for your interest in contributing. k8s-pilot is built up via small, revie
 
 1. **One PR, one concern.** A PR introduces one capability or fixes one issue. If you find yourself touching unrelated files, split the PR.
 2. **Diff before mutate.** Any change that adds or modifies a wrapper script for `kubectl`, `helm`, `argocd`, or `flux` must keep the diff-before-mutate discipline. Wrappers that apply changes must require a diff artifact or a `-Force` flag with a clear justification.
-3. **No GitHub Actions CI on this repo at this time.** Validation is local-only via `scripts/Pre-Commit.ps1` (planned, PR 12). If you believe a workflow is needed, open an issue first.
+3. **No GitHub Actions CI on this repo at this time.** Validation is local-only via `scripts/Pre-Commit.ps1`. If you believe a workflow is needed, open an issue first.
 4. **Skill files are authoritative.** Do not duplicate API reference content into agent personas, docs, or scripts. Link to `skills/kubernetes/SKILL.md` instead.
 5. **Context safety.** Any script that mutates cluster state must take an explicit `-Context` (or `-Cluster <name>` resolved via `config/clusters.yaml`) before invoking `kubectl`/`helm`/`argocd`/`flux`. Never trust the ambient kubeconfig context.
 6. **Multi-cluster safety.** Read/diff wrappers may fan out across many clusters. Mutation wrappers must run against a single cluster per invocation unless the caller passes `-AcknowledgeMultiClusterMutation`, and `tier=prod` clusters in `config/clusters.yaml` must be excluded from any fan-out by default (selector must explicitly include them).
@@ -23,7 +23,7 @@ git checkout -b feat/<short-description>
 
 # 3. Make your change. Keep diffs minimal and focused.
 
-# 4. Run the local gate (planned, PR 12)
+# 4. Run the local pre-push gate
 pwsh ./scripts/Pre-Commit.ps1
 
 # 5. Commit using Conventional Commits

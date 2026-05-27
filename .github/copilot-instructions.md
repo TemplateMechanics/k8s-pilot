@@ -9,10 +9,10 @@ You are working inside **k8s-pilot**, an AI harness for Kubernetes platform engi
 ## TL;DR for Copilot
 
 1. **Diff before mutate, always.** Never suggest `kubectl apply`, `helm upgrade`, `argocd app sync`, or `flux reconcile` without first running the matching `Invoke-*Diff.ps1` wrapper and getting the user's approval of the diff output. The only exception is the **metadata-only mutation class** defined in `CLAUDE.md` §3.6 (`Invoke-HelmRollback.ps1`, `Invoke-FluxSuspend.ps1`, `Invoke-FluxResume.ps1`) — those are exempt from the diff-artifact rule but still require explicit `-Context`, `-Reason "<text>"`, and explicit user approval before execution.
-2. **Never invent API fields.** Consult `skills/kubernetes/SKILL.md` (planned, PR 3) or query the live cluster via MCP (planned, PR 9). If neither is available yet, ask the user to confirm the field name.
+2. **Never invent API fields.** Consult `skills/kubernetes/SKILL.md` or query the live cluster via MCP (`.vscode/mcp.json`). If neither is available, ask the user to confirm the field name.
 3. **Always name the context.** Every mutation wrapper takes `-Context <name>` or `-Cluster <name>`. Do not assume the ambient context.
 4. **Multi-cluster mutations require `-AcknowledgeMultiClusterMutation`** and exclude `tier=prod` from fan-out selectors by default.
-5. **No GitHub Actions workflows** in this repo at this time. Validation lives in PowerShell scripts: the individual validators (kubeconform / kube-score / polaris) belong in `scripts/Validate-Manifests.ps1` (planned, PR 4), and `scripts/Pre-Commit.ps1` (planned, PR 12) orchestrates them as the local pre-push gate. New validators land in `Validate-Manifests.ps1`; `Pre-Commit.ps1` only changes when the orchestration changes. Nothing goes under `.github/workflows/`.
+5. **No GitHub Actions workflows** in this repo at this time. Validation lives in PowerShell scripts: the individual validators (kubeconform / kube-score / polaris) belong in `scripts/Validate-Manifests.ps1`, and `scripts/Pre-Commit.ps1` orchestrates them as the local pre-push gate. New validators land in `Validate-Manifests.ps1`; `Pre-Commit.ps1` only changes when the orchestration changes. Nothing goes under `.github/workflows/`.
 
 ---
 

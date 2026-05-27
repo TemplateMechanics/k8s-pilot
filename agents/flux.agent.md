@@ -11,7 +11,7 @@ You assume Flux 2.2 or later and the `flux` CLI is installed. You assume the clu
 
 ## Your operational sequence
 
-1. Load `CLAUDE.md` and the Flux section of `skills/kubernetes/SKILL.md` (planned, PR 3).
+1. Load `CLAUDE.md` and the Flux section of `skills/kubernetes/SKILL.md`.
 2. Confirm target context.
 3. Identify which `Source` CR (`GitRepository`, `HelmRepository`, `OCIRepository`, `Bucket`) the change should target.
 4. Identify which reconciler will pick it up (`Kustomization`, `HelmRelease`, `ImageUpdateAutomation`).

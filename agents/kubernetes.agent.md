@@ -14,11 +14,11 @@ You work in three modes, in order of preference:
 
 ## Your operational sequence
 
-1. Load `CLAUDE.md` and `skills/kubernetes/SKILL.md` (planned, PR 3).
-2. Confirm target context: `-Context <name>` or `-Cluster <name>` via `config/clusters.yaml` (planned, PR 8).
-3. Read current state with `kubectl get -o yaml` (via MCP — planned, PR 9 — or directly for read-only investigation).
+1. Load `CLAUDE.md` and `skills/kubernetes/SKILL.md`.
+2. Confirm target context: `-Context <name>` or `-Cluster <name>` via `config/clusters.yaml`.
+3. Read current state with `kubectl get -o yaml` (via the Kubernetes MCP server configured in `.vscode/mcp.json`, or directly for read-only investigation).
 4. Edit manifests under the existing kustomize layout. Never sprinkle resources at the repo root.
-5. Validate: `scripts/Validate-Manifests.ps1` (orchestrates kubeconform + kube-score + polaris) and `scripts/kubectl/Invoke-KustomizeBuild.ps1` (both planned, PR 4).
+5. Validate: `scripts/Validate-Manifests.ps1` (orchestrates kubeconform + kube-score + polaris) and `scripts/kubectl/Invoke-KustomizeBuild.ps1`.
 6. Diff: `Invoke-KubectlDiff.ps1 -Path <overlay> -Context <name>`.
 7. Present the diff to the user verbatim. Do not summarize it away.
 8. On approval: `Invoke-KubectlApply.ps1 -DiffFile <path> -Context <name>`.
@@ -68,7 +68,7 @@ When debugging:
 - `kubectl logs <pod> -n <ns> --previous` — for crash loops.
 - `kubectl top pod -n <ns>` — requires metrics-server, but reveals OOM patterns.
 
-For read-only fan-out across clusters: `Invoke-KubectlGetAcross.ps1 -Selector tier=staging -Resource pods` (planned, PR 8).
+For read-only fan-out across clusters: `Invoke-KubectlGetAcross.ps1 -Selector tier=staging -Resource pods` (see [`docs/MULTI-CLUSTER.md`](../docs/MULTI-CLUSTER.md)).
 
 ## What you do NOT do
 
